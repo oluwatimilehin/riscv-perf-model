@@ -88,7 +88,11 @@ add_executable(olympia
   sim/OlympiaSim.cpp
   sim/main.cpp
 )
+
+add_executable(trace_analyser core/trace_analyser/main.cpp)
+
 target_link_libraries (olympia core mss SPARTA::sparta stf)
+target_link_libraries(trace_analyser mavis SPARTA::sparta stf )
 
 if (CMAKE_BUILD_TYPE MATCHES "^[Rr]elease")
   target_compile_options (core    PUBLIC -flto)
