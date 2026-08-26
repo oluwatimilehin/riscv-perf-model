@@ -30,8 +30,10 @@ namespace olympia
                 inst_generator_->getNextInst(nullptr); // TODO: Pass the clock as well
         }
 
-        std::shared_ptr<InstSequence> prev_sequence =
+        std::shared_ptr<InstSequence> first_sequence =
             std::make_shared<InstSequence>(current_instruction_sequence);
+
+        std::shared_ptr<InstSequence> prev_sequence = first_sequence;
 
         results.push_back(prev_sequence);
         id_to_seq[prev_sequence->getId()] = prev_sequence;
@@ -53,6 +55,11 @@ namespace olympia
             }
             prev_sequence->addSuccessor(it->second->getId());
             prev_sequence = it->second;
+        }
+
+        if (prev_sequence->getTransitions().empty())
+        {
+            prev_sequence->addSuccessor(first_sequence->getId());
         }
 
         return results;
