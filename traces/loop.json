@@ -1,0 +1,211 @@
+[
+    {
+        "pc": 0,
+        "opcode": 147,
+        "mnemonic": "addi",
+        "rd": "x1",
+        "rs1": "x0",
+        "imm": 0
+    },
+    {
+        "pc": 4,
+        "opcode": 275,
+        "mnemonic": "addi",
+        "rd": "x2",
+        "rs1": "x0",
+        "imm": 0
+    },
+    {
+        "pc": 8,
+        "opcode": 5243283,
+        "mnemonic": "addi",
+        "rd": "x3",
+        "rs1": "x0",
+        "imm": 5
+    },
+    {
+        "pc": 12,
+        "opcode": 3201123,
+        "mnemonic": "bge",
+        "rs1": "x1",
+        "rs2": "x3",
+        "imm": 16,
+        "taken": false
+    },
+    {
+        "pc": 16,
+        "opcode": 1114419,
+        "mnemonic": "add",
+        "rd": "x2",
+        "rs1": "x2",
+        "rs2": "x1"
+    },
+    {
+        "pc": 20,
+        "opcode": 1081491,
+        "mnemonic": "addi",
+        "rd": "x1",
+        "rs1": "x1",
+        "imm": 1
+    },
+    {
+        "pc": 24,
+        "opcode": 4284477551,
+        "mnemonic": "jal",
+        "rd": "x0",
+        "imm": -12
+    },
+    {
+        "pc": 12,
+        "opcode": 3201123,
+        "mnemonic": "bge",
+        "rs1": "x1",
+        "rs2": "x3",
+        "imm": 16,
+        "taken": false
+    },
+    {
+        "pc": 16,
+        "opcode": 1114419,
+        "mnemonic": "add",
+        "rd": "x2",
+        "rs1": "x2",
+        "rs2": "x1"
+    },
+    {
+        "pc": 20,
+        "opcode": 1081491,
+        "mnemonic": "addi",
+        "rd": "x1",
+        "rs1": "x1",
+        "imm": 1
+    },
+    {
+        "pc": 24,
+        "opcode": 4284477551,
+        "mnemonic": "jal",
+        "rd": "x0",
+        "imm": -12
+    },
+    {
+        "pc": 12,
+        "opcode": 3201123,
+        "mnemonic": "bge",
+        "rs1": "x1",
+        "rs2": "x3",
+        "imm": 16,
+        "taken": false
+    },
+    {
+        "pc": 16,
+        "opcode": 1114419,
+        "mnemonic": "add",
+        "rd": "x2",
+        "rs1": "x2",
+        "rs2": "x1"
+    },
+    {
+        "pc": 20,
+        "opcode": 1081491,
+        "mnemonic": "addi",
+        "rd": "x1",
+        "rs1": "x1",
+        "imm": 1
+    },
+    {
+        "pc": 24,
+        "opcode": 4284477551,
+        "mnemonic": "jal",
+        "rd": "x0",
+        "imm": -12
+    },
+    {
+        "pc": 12,
+        "opcode": 3201123,
+        "mnemonic": "bge",
+        "rs1": "x1",
+        "rs2": "x3",
+        "imm": 16,
+        "taken": false
+    },
+    {
+        "pc": 16,
+        "opcode": 1114419,
+        "mnemonic": "add",
+        "rd": "x2",
+        "rs1": "x2",
+        "rs2": "x1"
+    },
+    {
+        "pc": 20,
+        "opcode": 1081491,
+        "mnemonic": "addi",
+        "rd": "x1",
+        "rs1": "x1",
+        "imm": 1
+    },
+    {
+        "pc": 24,
+        "opcode": 4284477551,
+        "mnemonic": "jal",
+        "rd": "x0",
+        "imm": -12
+    },
+    {
+        "pc": 12,
+        "opcode": 3201123,
+        "mnemonic": "bge",
+        "rs1": "x1",
+        "rs2": "x3",
+        "imm": 16,
+        "taken": false
+    },
+    {
+        "pc": 16,
+        "opcode": 1114419,
+        "mnemonic": "add",
+        "rd": "x2",
+        "rs1": "x2",
+        "rs2": "x1"
+    },
+    {
+        "pc": 20,
+        "opcode": 1081491,
+        "mnemonic": "addi",
+        "rd": "x1",
+        "rs1": "x1",
+        "imm": 1
+    },
+    {
+        "pc": 24,
+        "opcode": 4284477551,
+        "mnemonic": "jal",
+        "rd": "x0",
+        "imm": -12
+    },
+    {
+        "pc": 12,
+        "opcode": 3201123,
+        "mnemonic": "bge",
+        "rs1": "x1",
+        "rs2": "x3",
+        "imm": 16,
+        "taken": true
+    },
+    {
+        "pc": 4,
+        "opcode": 275,
+        "mnemonic": "addi",
+        "rd": "x2",
+        "rs1": "x0",
+        "imm": 0
+    },
+    {
+        "pc": 8,
+        "opcode": 5243283,
+        "mnemonic": "addi",
+        "rd": "x3",
+        "rs1": "x0",
+        "imm": 5
+    }
+]
