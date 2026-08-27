@@ -58,4 +58,4 @@ add_subdirectory(vector)
 add_subdirectory(lsu)
 add_subdirectory(trace_analyser)
 
-target_link_libraries(core fetch decode rename dispatch execute vector lsu instgen trace_analyser_lib)
+target_link_libraries(core fetch decode rename dispatch execute vector lsu trace_analyser_lib instgen)
