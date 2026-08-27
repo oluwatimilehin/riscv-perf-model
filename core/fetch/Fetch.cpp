@@ -24,6 +24,7 @@ namespace olympia
         my_clk_(getClock()),
         num_insts_to_fetch_(p->num_to_fetch),
         skip_nonuser_mode_(p->skip_nonuser_mode),
+        probabilistic_mode_(p->probabilistic_mode),
         icache_block_shift_(sparta::utils::floor_log2(p->block_width.getValue())),
         ibuf_capacity_(std::ceil(p->block_width / 2)), // buffer up instructions read from trace
         fetch_buffer_capacity_(p->fetch_buffer_size),
@@ -66,13 +67,14 @@ namespace olympia
         auto cpu_node = getContainer()->getParent()->getParent();
         auto extension = sparta::notNull(cpu_node->getExtension("simulation_configuration"));
         auto workload = extension->getParameters()->getParameter("workload");
-        // inst_generator_ = InstGenerator::createGenerator(info_logger_,
-        //                                                  getMavis(getContainer()),
-        //                                                  workload->getValueAsString(),
-        //                                                  skip_nonuser_mode_);
-        inst_generator_ = InstGenerator::createProbabilisticGenerator(
-            info_logger_, getMavis(getContainer()), workload->getValueAsString(), my_clk_,
-            num_insts_to_fetch_, skip_nonuser_mode_);
+        inst_generator_ =
+            probabilistic_mode_
+                ? InstGenerator::createProbabilisticGenerator(
+                      info_logger_, getMavis(getContainer()), workload->getValueAsString(), my_clk_,
+                      num_insts_to_fetch_, skip_nonuser_mode_)
+                : InstGenerator::createGenerator(info_logger_, getMavis(getContainer()),
+                                                 workload->getValueAsString(), skip_nonuser_mode_);
+
         ev_fetch_insts->schedule(1);
     }
 
