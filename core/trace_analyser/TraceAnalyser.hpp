@@ -2,13 +2,16 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <memory>
-#include <sparta/simulation/Clock.hpp>
 #include <string>
 #include <vector>
 
+#include "Inst.hpp"
+
 #include "sparta/log/MessageSource.hpp"
 #include "sparta/simulation/Clock.hpp"
+#include <sparta/simulation/Clock.hpp>
 
 #include "decode/MavisUnit.hpp"
 #include "InstSequence.hpp"
@@ -34,9 +37,15 @@ namespace olympia
                                                            const bool write_json);
 
       private:
+        void writeJSONResults_(const uint32_t sequence_length,
+                               const std::filesystem::path & result_file_path,
+                               const std::vector<std::shared_ptr<InstSequence>> & sequences,
+                               const std::vector<InstPtr> & instructions);
+
         sparta::log::MessageSource & info_logger_;
         MavisType* mavis_facade_ = nullptr;
         sparta::Clock* clk_ = nullptr;
+        std::string results_dir = "statistical-traces";
         std::unique_ptr<InstGenerator> inst_generator_;
     };
 } // namespace olympia

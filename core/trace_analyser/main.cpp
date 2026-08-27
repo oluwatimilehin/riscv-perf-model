@@ -22,15 +22,13 @@ int main(int argc, char** argv)
 {
     int sequence_length;
     bool skip_nonuser_mode = false;
-    bool write_json = true;
     std::string trace_file;
 
     po::options_description desc("Trace Analyser Options");
     desc.add_options()("help", "Produce help message")(
         "sequence-length,s", po::value<int>(&sequence_length)->required())(
         "skip-non-user", po::bool_switch(&skip_nonuser_mode),
-        "For STF traces, skip system instructions if present")("write-json",
-                                                               po::bool_switch(&write_json))(
+        "For STF traces, skip system instructions if present")(
         "trace,t", po::value<std::string>(&trace_file)->required(), "Path to trace file");
 
     po::positional_options_description positional;
@@ -59,8 +57,7 @@ int main(int argc, char** argv)
     olympia::TraceAnalyser analyser(sparta::log::MessageSource::getGlobalDebug(),
                                     mavis_unit.getFacade(), &clock);
 
-    const auto sequences =
-        analyser.analyse(trace_file, sequence_length, skip_nonuser_mode, write_json);
+    const auto sequences = analyser.analyse(trace_file, sequence_length, skip_nonuser_mode, true);
     std::cout << "Returned sequence of length: " << sequences.size() << std::endl;
     return 0;
 }
