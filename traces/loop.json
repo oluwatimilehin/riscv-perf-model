@@ -207,5 +207,13 @@
         "rd": "x3",
         "rs1": "x0",
         "imm": 5
+    },
+    {
+        "pc": 9,
+        "opcode": 915,
+        "mnemonic": "addi",
+        "rd": "x7",
+        "rs1": "x0",
+        "imm": 0
     }
 ]
