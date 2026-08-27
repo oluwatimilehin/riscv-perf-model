@@ -2,6 +2,7 @@
 
 #include <Inst.hpp>
 #include <algorithm>
+#include <iostream>
 #include <iterator>
 #include <memory>
 
@@ -20,16 +21,18 @@ namespace olympia
         std::vector<std::shared_ptr<InstSequence>> results;
         std::unordered_map<std::string, std::shared_ptr<InstSequence>> id_to_seq;
 
+        std::cout << "Initialized results and id to seq \n";
         std::vector<InstPtr> current_instruction_sequence;
         current_instruction_sequence.reserve(sequence_length);
+        std::cout << "Reserved list \n";
 
         // Initialize the first instruction sequence
         for (size_t i = 0; i < sequence_length; i++)
         {
-            current_instruction_sequence[i] =
-                inst_generator_->getNextInst(nullptr); // TODO: Pass the clock as well
+            current_instruction_sequence.push_back(inst_generator_->getNextInst(clk_));
         }
 
+        std::cout << "Initialized first result sequence \n";
         std::shared_ptr<InstSequence> first_sequence =
             std::make_shared<InstSequence>(current_instruction_sequence);
 

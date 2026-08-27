@@ -3,10 +3,12 @@
 
 #include <cstdint>
 #include <memory>
+#include <sparta/simulation/Clock.hpp>
 #include <string>
 #include <vector>
 
 #include "sparta/log/MessageSource.hpp"
+#include "sparta/simulation/Clock.hpp"
 
 #include "decode/MavisUnit.hpp"
 #include "InstSequence.hpp"
@@ -18,10 +20,11 @@ namespace olympia
     class TraceAnalyser
     {
       public:
-        TraceAnalyser(sparta::log::MessageSource & info_logger, MavisType* mavis_facade) :
+        TraceAnalyser(sparta::log::MessageSource & info_logger, MavisType* mavis_facade,
+                      sparta::Clock* clk) :
             info_logger_(info_logger),
-            mavis_facade_(mavis_facade)
-
+            mavis_facade_(mavis_facade),
+            clk_(clk)
         {
         }
 
@@ -33,6 +36,7 @@ namespace olympia
       private:
         sparta::log::MessageSource & info_logger_;
         MavisType* mavis_facade_ = nullptr;
+        sparta::Clock* clk_ = nullptr;
         std::unique_ptr<InstGenerator> inst_generator_;
     };
 } // namespace olympia

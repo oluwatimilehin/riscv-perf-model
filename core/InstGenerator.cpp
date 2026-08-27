@@ -2,20 +2,22 @@
 #include "InstGenerator.hpp"
 #include "mavis/Mavis.h"
 #include "mavis/JSONUtils.hpp"
+#include <boost/json.hpp>
 
 namespace olympia
 {
-    std::unique_ptr<InstGenerator> InstGenerator::createGenerator(sparta::log::MessageSource & info_logger,
-                                                                  MavisType* mavis_facade,
-                                                                  const std::string & filename,
-                                                                  const bool skip_nonuser_mode)
+    std::unique_ptr<InstGenerator>
+    InstGenerator::createGenerator(sparta::log::MessageSource & info_logger,
+                                   MavisType* mavis_facade, const std::string & filename,
+                                   const bool skip_nonuser_mode)
     {
         const std::string json_ext = "json";
         if ((filename.size() > json_ext.size())
             && filename.substr(filename.size() - json_ext.size()) == json_ext)
         {
             std::cout << "olympia: JSON file input detected" << std::endl;
-            return std::unique_ptr<InstGenerator>(new JSONInstGenerator(info_logger, mavis_facade, filename));
+            return std::unique_ptr<InstGenerator>(
+                new JSONInstGenerator(info_logger, mavis_facade, filename));
         }
 
         const std::string stf_ext = "stf"; // Should cover both zstf and stf
@@ -36,8 +38,7 @@ namespace olympia
     ////////////////////////////////////////////////////////////////////////////////
     // JSON Inst Generator
     JSONInstGenerator::JSONInstGenerator(sparta::log::MessageSource & info_logger,
-                                         MavisType* mavis_facade,
-                                         const std::string & filename) :
+                                         MavisType* mavis_facade, const std::string & filename) :
         InstGenerator(info_logger, mavis_facade)
     {
         std::ifstream fs;
@@ -64,13 +65,13 @@ namespace olympia
         // Validate that the saved index is within bounds
         sparta_assert(saved_index < n_insts_,
                       "Rewind index " << saved_index << " is out of bounds for JSON trace with "
-                      << n_insts_ << " instructions.");
+                                      << n_insts_ << " instructions.");
 
         curr_inst_index_ = saved_index;
         program_id_ = inst_ptr->getProgramID();
 
-        ILOG("Rewinding JSON trace to instruction pid:" << program_id_
-             << " uid:" << inst_ptr->getUniqueID() << " index:" << curr_inst_index_
+        ILOG("Rewinding JSON trace to instruction pid:"
+             << program_id_ << " uid:" << inst_ptr->getUniqueID() << " index:" << curr_inst_index_
              << (skip ? " (skipping to next)" : " (inclusive)"));
 
         if (skip)
@@ -92,7 +93,10 @@ namespace olympia
         InstPtr inst;
         if (const auto it = jinst.find("opcode"); it != jinst.end())
         {
-            uint64_t opcode = std::strtoull(it->value().as_string().c_str(), nullptr, 0);
+            const boost::json::value & value = it->value();
+            uint64_t opcode = value.is_string()
+                                  ? std::strtoull(value.as_string().c_str(), nullptr, 0)
+                                  : static_cast<uint64_t>(value.as_int64());
             inst = mavis_facade_->makeInst(opcode, clk);
         }
         else
@@ -108,9 +112,10 @@ namespace olympia
                                        const mavis::InstMetaData::OperandFieldID operand_field_id,
                                        const mavis::InstMetaData::OperandTypes operand_type)
             {
-                if (const auto it = jinst.find(key);  it != jinst.end())
+                if (const auto it = jinst.find(key); it != jinst.end())
                 {
-                    operands.addElement(operand_field_id, operand_type, boost::json::value_to<uint64_t>(it->value()));
+                    operands.addElement(operand_field_id, operand_type,
+                                        boost::json::value_to<uint64_t>(it->value()));
                 }
             };
 
@@ -150,8 +155,7 @@ namespace olympia
 
             if (const auto it = jinst.find("vaddr"); it != jinst.end())
             {
-                uint64_t vaddr =
-                    std::strtoull(it->value().as_string().c_str(), nullptr, 0);
+                uint64_t vaddr = std::strtoull(it->value().as_string().c_str(), nullptr, 0);
                 inst->setTargetVAddr(vaddr);
             }
 
@@ -159,8 +163,7 @@ namespace olympia
             if (const auto it = jinst.find("vtype"); it != jinst.end())
             {
                 // immediate, so decode from hex
-                uint64_t vtype =
-                    std::strtoull(it->value().as_string().c_str(), nullptr, 0);
+                uint64_t vtype = std::strtoull(it->value().as_string().c_str(), nullptr, 0);
                 std::string binaryString = std::bitset<32>(vtype).to_string();
                 uint32_t sew = std::pow(2, std::stoi(binaryString.substr(26, 3), nullptr, 2)) * 8;
                 uint32_t lmul = std::pow(2, std::stoi(binaryString.substr(29, 3), nullptr, 2));
@@ -197,8 +200,7 @@ namespace olympia
     ////////////////////////////////////////////////////////////////////////////////
     // STF Inst Generator
     TraceInstGenerator::TraceInstGenerator(sparta::log::MessageSource & info_logger,
-                                           MavisType* mavis_facade,
-                                           const std::string & filename,
+                                           MavisType* mavis_facade, const std::string & filename,
                                            const bool skip_nonuser_mode) :
         InstGenerator(info_logger, mavis_facade)
     {
@@ -240,15 +242,15 @@ namespace olympia
         // have been read since this instruction was fetched, the iterator becomes invalid
         sparta_assert(saved_it.valid(),
                       "Rewind iterator is no longer valid for instruction uid:"
-                      << inst_ptr->getUniqueID() << " pid:" << inst_ptr->getProgramID()
-                      << " - instruction has moved outside the STF buffer window. "
-                      << "Consider increasing the STF buffer size (currently 4096).");
+                          << inst_ptr->getUniqueID() << " pid:" << inst_ptr->getProgramID()
+                          << " - instruction has moved outside the STF buffer window. "
+                          << "Consider increasing the STF buffer size (currently 4096).");
 
         next_it_ = saved_it;
         program_id_ = inst_ptr->getProgramID();
 
-        ILOG("Rewinding STF trace to instruction pid:" << program_id_
-             << " uid:" << inst_ptr->getUniqueID()
+        ILOG("Rewinding STF trace to instruction pid:"
+             << program_id_ << " uid:" << inst_ptr->getUniqueID()
              << (skip ? " (skipping to next)" : " (inclusive)"));
 
         if (skip)
