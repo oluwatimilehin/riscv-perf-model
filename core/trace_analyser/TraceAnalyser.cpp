@@ -6,6 +6,7 @@
 #include <iterator>
 #include <memory>
 
+// TODO: This class needs a test
 namespace olympia
 {
     std::vector<std::shared_ptr<InstSequence>>
