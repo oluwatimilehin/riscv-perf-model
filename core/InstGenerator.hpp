@@ -7,8 +7,12 @@
 
 #pragma once
 
+#include <cstdint>
+#include <random>
 #include <string>
 #include <memory>
+#include <unordered_set>
+#include <vector>
 
 #include "Inst.hpp"
 #include "decode/MavisUnit.hpp"
@@ -18,6 +22,8 @@
 #include "sparta/utils/LogUtils.hpp"
 
 #include "stf-inc/stf_inst_reader.hpp"
+
+#include "InstSequence.hpp"
 
 namespace olympia
 {
@@ -31,65 +37,90 @@ namespace olympia
      */
     class InstGenerator
     {
-    public:
-        InstGenerator(sparta::log::MessageSource & info_logger, MavisType * mavis_facade) :
+      public:
+        InstGenerator(sparta::log::MessageSource & info_logger, MavisType* mavis_facade) :
             info_logger_(info_logger),
-            mavis_facade_(mavis_facade) {}
+            mavis_facade_(mavis_facade)
+        {
+        }
+
         virtual ~InstGenerator() {}
-        virtual InstPtr getNextInst(const sparta::Clock * clk) = 0;
-        static std::unique_ptr<InstGenerator> createGenerator(sparta::log::MessageSource & info_logger,
-                                                              MavisType * mavis_facade,
-                                                              const std::string & filename,
-                                                              const bool skip_nonuser_mode);
+
+        virtual InstPtr getNextInst(const sparta::Clock* clk) = 0;
+        static std::unique_ptr<InstGenerator>
+        createGenerator(sparta::log::MessageSource & info_logger, MavisType* mavis_facade,
+                        const std::string & filename, const bool skip_nonuser_mode);
+        static std::unique_ptr<InstGenerator>
+        createProbabilisticGenerator(sparta::log::MessageSource & info_logger,
+                                     MavisType* mavis_facade, const std::string & filename,
+                                     const sparta::Clock* clk, uint32_t sequence_length,
+                                     const bool skip_nonuser_mode);
         virtual bool isDone() const = 0;
         virtual void reset(const InstPtr &, const bool) = 0;
 
-    protected:
+      protected:
         sparta::log::MessageSource & info_logger_;
-        MavisType * mavis_facade_ = nullptr;
-        uint64_t    unique_id_ = 0;
-        uint64_t    program_id_ = 1;
+        MavisType* mavis_facade_ = nullptr;
+        uint64_t unique_id_ = 0;
+        uint64_t program_id_ = 1;
     };
 
     // Generates instructions from a JSON file
     class JSONInstGenerator : public InstGenerator
     {
-    public:
-        JSONInstGenerator(sparta::log::MessageSource & info_logger,
-                          MavisType * mavis_facade,
+      public:
+        JSONInstGenerator(sparta::log::MessageSource & info_logger, MavisType* mavis_facade,
                           const std::string & filename);
-        InstPtr getNextInst(const sparta::Clock * clk) override final;
+        InstPtr getNextInst(const sparta::Clock* clk) override final;
 
         bool isDone() const override final;
         void reset(const InstPtr &, const bool) override final;
 
-
-    private:
-        boost::json::array  jobj_;
-        uint64_t            curr_inst_index_ = 0;
-        uint64_t            n_insts_ = 0;
+      private:
+        boost::json::array jobj_;
+        uint64_t curr_inst_index_ = 0;
+        uint64_t n_insts_ = 0;
     };
 
     // Generates instructions from an STF Trace file
     class TraceInstGenerator : public InstGenerator
     {
-    public:
+      public:
         // Creates a TraceInstGenerator with the given mavis facade
         // and filename.  The parameter skip_nonuser_mode allows the
         // trace generator to skip system instructions if present
-        TraceInstGenerator(sparta::log::MessageSource & info_logger,
-                           MavisType * mavis_facade,
-                           const std::string & filename,
-                           const bool skip_nonuser_mode);
+        TraceInstGenerator(sparta::log::MessageSource & info_logger, MavisType* mavis_facade,
+                           const std::string & filename, const bool skip_nonuser_mode);
 
-        InstPtr getNextInst(const sparta::Clock * clk) override final;
+        InstPtr getNextInst(const sparta::Clock* clk) override final;
 
         bool isDone() const override final;
         void reset(const InstPtr &, const bool) override final;
-    private:
+
+      private:
         std::unique_ptr<stf::STFInstReader> reader_;
 
         // Always points to the *next* stf inst
         stf::STFInstReader::iterator next_it_;
     };
-}
+
+    class ProbabilisticInstGenerator : public InstGenerator
+    {
+      public:
+        ProbabilisticInstGenerator(sparta::log::MessageSource & info_logger,
+                                   MavisType* mavis_facade, const std::string & filename,
+                                   const sparta::Clock* clk, uint32_t sequence_length,
+                                   const bool skip_nonuser_mode);
+        InstPtr getNextInst(const sparta::Clock* clk) override final;
+
+        bool isDone() const override final;
+        void reset(const InstPtr &, const bool) override final;
+
+      private:
+        std::unordered_map<std::string, std::shared_ptr<InstSequence>> id_to_seq_;
+        std::string current_sequence_id;
+        std::unordered_set<std::string> visited_sequences_;
+        std::random_device rd_;
+        std::mt19937 gen_;
+    };
+} // namespace olympia

@@ -24,14 +24,14 @@ namespace olympia
     {
       public:
         TraceAnalyser(sparta::log::MessageSource & info_logger, MavisType* mavis_facade,
-                      sparta::Clock* clk) :
+                      const sparta::Clock* clk) :
             info_logger_(info_logger),
             mavis_facade_(mavis_facade),
             clk_(clk)
         {
         }
 
-        std::vector<std::shared_ptr<InstSequence>> analyse(const std::string & filename,
+        std::vector<std::shared_ptr<InstSequence>> analyse(const std::string & trace_path,
                                                            const uint32_t sequence_length,
                                                            const bool skip_nonuser_mode,
                                                            const bool write_json);
@@ -44,7 +44,7 @@ namespace olympia
 
         sparta::log::MessageSource & info_logger_;
         MavisType* mavis_facade_ = nullptr;
-        sparta::Clock* clk_ = nullptr;
+        const sparta::Clock* clk_ = nullptr;
         std::string results_dir = "statistical-traces";
         std::unique_ptr<InstGenerator> inst_generator_;
     };

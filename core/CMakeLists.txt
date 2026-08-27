@@ -36,6 +36,7 @@ add_library(instgen
   InstArchInfo.cpp
   InstGroup.cpp
   InstGenerator.cpp
+  trace_analyser/TraceAnalyser.cpp
 )
 
 find_package(Boost REQUIRED COMPONENTS json)
@@ -49,6 +50,7 @@ target_include_directories(core SYSTEM PRIVATE ${SPARTA_INCLUDE_PROP})
 add_dependencies(core git_version_target)
 target_include_directories(core PUBLIC "${CMAKE_CURRENT_BINARY_DIR}")
 
+add_subdirectory(trace_analyser)
 add_subdirectory(fetch)
 add_subdirectory(decode)
 add_subdirectory(rename)
@@ -56,6 +58,6 @@ add_subdirectory(dispatch)
 add_subdirectory(execute)
 add_subdirectory(vector)
 add_subdirectory(lsu)
-add_subdirectory(trace_analyser)
+
 
 target_link_libraries(core fetch decode rename dispatch execute vector lsu trace_analyser_lib instgen)

@@ -1,8 +1,15 @@
 
 #include "InstGenerator.hpp"
+#include "Inst.hpp"
 #include "mavis/Mavis.h"
 #include "mavis/JSONUtils.hpp"
 #include <boost/json.hpp>
+#include <cstdint>
+#include <iostream>
+#include <memory>
+#include <ostream>
+
+#include "trace_analyser/TraceAnalyser.hpp"
 
 namespace olympia
 {
@@ -33,6 +40,16 @@ namespace olympia
         sparta_assert(false, "Unknown file extension for '" << filename
                                                             << "'.  Expected .json or .[z]stf");
         return nullptr;
+    }
+
+    std::unique_ptr<InstGenerator> InstGenerator::createProbabilisticGenerator(
+        sparta::log::MessageSource & info_logger, MavisType* mavis_facade,
+        const std::string & filename, const sparta::Clock* clk, uint32_t sequence_length,
+        const bool skip_nonuser_mode)
+    {
+        std::cout << "olympia: Running probabilistic instruction generator" << std::endl;
+        return std::make_unique<ProbabilisticInstGenerator>(
+            info_logger, mavis_facade, filename, clk, sequence_length, skip_nonuser_mode);
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -306,4 +323,60 @@ namespace olympia
         return nullptr;
     }
 
+    ////////////////////////////////////////////////////////////////////////////////
+    // Probabilistic Inst Generator
+    ProbabilisticInstGenerator::ProbabilisticInstGenerator(sparta::log::MessageSource & info_logger,
+                                                           MavisType* mavis_facade,
+                                                           const std::string & filename,
+                                                           const sparta::Clock* clk,
+                                                           uint32_t sequence_length,
+                                                           const bool skip_nonuser_mode) :
+        InstGenerator(info_logger, mavis_facade),
+        gen_(rd_())
+    {
+        TraceAnalyser analyser(info_logger, mavis_facade_, clk);
+        std::vector<std::shared_ptr<InstSequence>> sequences =
+            analyser.analyse(filename, sequence_length, skip_nonuser_mode, true);
+
+        for (const auto & sequence : sequences)
+        {
+            id_to_seq_.emplace(sequence->getId(), sequence);
+        }
+        current_sequence_id = sequences[0]->getId();
+    }
+
+    bool ProbabilisticInstGenerator::isDone() const
+    {
+        return visited_sequences_.size() == id_to_seq_.size();
+    }
+
+    void ProbabilisticInstGenerator::reset(const InstPtr & inst_ptr, const bool skip = false)
+    {
+        // TODO: Need to think about what reseting should mean here. Perhaps we give each new
+        // instruction a sequence ID, which will be the preceding sequence, so that we start from
+        // there?
+        std::cout << "Not yet implemented reset for Probabilistic Generator\n";
+    }
+
+    InstPtr ProbabilisticInstGenerator::getNextInst(const sparta::Clock* clk)
+    {
+
+        if (SPARTA_EXPECT_FALSE(isDone()))
+        {
+            return nullptr;
+        }
+
+        const auto & current_sequence = id_to_seq_[current_sequence_id];
+        const auto & first_instruction = current_sequence->getInstructions()[0];
+        const auto next_inst(
+            InstPtr(new Inst(*(first_instruction)))); // Create copy the instruction
+        next_inst->setUniqueID(++unique_id_);
+        next_inst->setProgramID(program_id_++);
+
+        visited_sequences_.insert(current_sequence_id);
+
+        current_sequence_id = current_sequence->getNextSequence(gen_);
+
+        return next_inst;
+    }
 } // namespace olympia

@@ -9,7 +9,8 @@ namespace olympia
 {
     InstSequence::InstSequence(const std::vector<InstPtr> & instructions) :
         instructions_(instructions),
-        successor_count_()
+        successor_count_(),
+        distribution_(std::make_unique<std::discrete_distribution<>>())
     {
         id_ = "";
         for (size_t i = 0; i < instructions.size(); i++)
@@ -24,6 +25,10 @@ namespace olympia
 
     void InstSequence::addSuccessor(const std::string & successor_id)
     {
+        if (distribution_)
+        {
+            distribution_.reset();
+        }
         successor_count_[successor_id]++;
     }
 
@@ -42,6 +47,29 @@ namespace olympia
         }
 
         return result;
+    }
+
+    std::string InstSequence::getNextSequence(std::mt19937 & gen)
+    {
+        if (!distribution_)
+        {
+            successors_.clear();
+            std::vector<float> weights;
+            const auto & transitions = getTransitions();
+            successors_.reserve(transitions.size());
+            weights.reserve(transitions.size());
+
+            for (const auto & [sequence, weight] : transitions)
+            {
+                successors_.push_back(sequence);
+                weights.push_back(weight);
+            }
+
+            distribution_ =
+                std::make_unique<std::discrete_distribution<>>(weights.begin(), weights.end());
+        }
+
+        return successors_[(*distribution_)(gen)];
     }
 
 } // namespace olympia
