@@ -107,8 +107,16 @@ namespace olympia
         prev_cycle_ipc_ = last_num_retired_;
         last_num_retired_ = 0;
 
-        if (getClock()->currentCycle() % convergence_check_interval_ == 0)
+        if (getClock()->currentCycle() % convergence_check_interval_ == 0
+            || terminate_without_convergence_)
         {
+            if (terminate_without_convergence_)
+            {
+                std::cout << "Computing stationary distribution without convergence as the last "
+                             "retirement exceeded the retire timeout interval."
+                          << std::endl;
+            }
+
             Eigen::VectorXd rows_sum = ipc_transition_tracker_.rowwise().sum();
             bool all_visited_ = true;
 
@@ -120,7 +128,7 @@ namespace olympia
                         false; // There must be a path from each IPC to at least one other IPC.
                 }
             }
-            if (all_visited_)
+            if (all_visited_ || terminate_without_convergence_)
             {
                 Eigen::MatrixXd current_matrix =
                     ipc_transition_tracker_.array().colwise() / rows_sum.array();
@@ -350,7 +358,12 @@ namespace olympia
             e << "Been a while since we've retired an instruction.  Is the pipe stalled "
                  "indefinitely?";
             e << " currentCycle: " << getClock()->currentCycle();
-            throw e;
+
+            terminate_without_convergence_ = true;
+            if (!probabilistic_mode_)
+            {
+                throw e;
+            }
         }
         ev_ensure_forward_progress_.schedule(retire_timeout_interval_);
     }

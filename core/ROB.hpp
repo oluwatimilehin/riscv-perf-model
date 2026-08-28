@@ -98,7 +98,7 @@ namespace olympia
         const bool probabilistic_mode_;
         const uint64_t convergence_check_interval_;
         const double convergence_threshold_;
-
+        bool terminate_without_convergence_ = false;
         InstQueue reorder_buffer_;
 
         Eigen::MatrixXd ipc_transition_tracker_;
