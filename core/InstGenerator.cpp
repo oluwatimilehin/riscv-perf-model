@@ -5,6 +5,7 @@
 #include "mavis/JSONUtils.hpp"
 #include <boost/json.hpp>
 #include <cstdint>
+#include <chrono>
 #include <iostream>
 #include <memory>
 #include <ostream>
@@ -334,9 +335,15 @@ namespace olympia
         InstGenerator(info_logger, mavis_facade),
         gen_(rd_())
     {
+        auto t1 = std::chrono::high_resolution_clock::now();
         TraceAnalyser analyser(info_logger, mavis_facade_, clk);
         std::vector<std::shared_ptr<InstSequence>> sequences =
             analyser.analyse(filename, sequence_length, skip_nonuser_mode, true);
+        auto t2 = std::chrono::high_resolution_clock::now();
+
+        std::cout << std::format("Trace analysis took {} seconds.\n",
+                                 (duration_cast<std::chrono::milliseconds>(t2 - t1)).count()
+                                     / 1000.0);
 
         for (const auto & sequence : sequences)
         {
