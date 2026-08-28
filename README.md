@@ -37,6 +37,7 @@ under development.
    * (clang++) Clang, Version: 14.0.0 OR (g++) v13.0.0 or greater
    * (flex) flex 2.6.4
    * (bison) bison 3.8.2
+   * (libeigen3-dev) Eigen library (Optional unless simulating in probabilistic mode)
 
 1. Confirm that map/sparta branch is `map_v2.2.3`
 

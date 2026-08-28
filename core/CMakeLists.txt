@@ -59,5 +59,7 @@ add_subdirectory(execute)
 add_subdirectory(vector)
 add_subdirectory(lsu)
 
-
 target_link_libraries(core fetch decode rename dispatch execute vector lsu trace_analyser_lib instgen)
+if(ENABLE_EIGEN)
+    target_link_libraries(core Eigen3::Eigen)
+endif()

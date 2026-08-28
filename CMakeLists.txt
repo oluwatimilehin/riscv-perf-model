@@ -52,6 +52,21 @@ set (SIM_BASE ${PROJECT_SOURCE_DIR})
 set (OLYMPIA_VERSION "v0.1.0")
 add_definitions(-DOLYMPIA_VERSION=\"${OLYMPIA_VERSION}\")
 
+# Set up matrix multiplication library if doing probabilistic simulation
+option(ENABLE_EIGEN "Enable features requiring Eigen" OFF)
+
+if(ENABLE_EIGEN)
+    message(STATUS, "ENABLE_EIGEN flag is set")
+    find_package(Eigen3 QUIET)
+
+    if(Eigen3_FOUND)
+        message(STATUS "Eigen3 found. Enabling Eigen features.")
+    else()
+        message(WARNING "ENABLE_EIGEN is ON, but Eigen3 was not found on the system (e.g. libeigen3-dev missing). Disabling Eigen support.")
+        set(ENABLE_EIGEN OFF)
+    endif()
+endif()
+
 # Profile build flags
 set(CMAKE_CXX_FLAGS_PROFILE   "-O3 -pg -g -ftime-trace")
 set(CMAKE_CXX_FLAGS_FASTDEBUG "-O3 -g")
