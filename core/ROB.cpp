@@ -1,6 +1,11 @@
 // <ROB.cpp> -*- C++ -*-
 
 #include <algorithm>
+#include <cstddef>
+#include <format>
+#include <iostream>
+#include <ostream>
+#include <vector>
 #include "ROB.hpp"
 
 #include "sparta/utils/LogUtils.hpp"
@@ -30,7 +35,10 @@ namespace olympia
         num_to_retire_(p->num_to_retire),
         num_insts_to_retire_(p->num_insts_to_retire),
         retire_heartbeat_(p->retire_heartbeat),
-        reorder_buffer_("ReorderBuffer", p->retire_queue_depth, node->getClock(), &unit_stat_set_)
+        reorder_buffer_("ReorderBuffer", p->retire_queue_depth, node->getClock(), &unit_stat_set_),
+        ipc_transition_tracker_(Eigen::MatrixXd::Zero(p->num_to_retire + 1, p->num_to_retire + 1)),
+        prev_transition_probability_matrix_(
+            Eigen::MatrixXd::Zero(p->num_to_retire + 1, p->num_to_retire + 1))
     {
         // Set a cycle delay on the retire, just for kicks
         ev_retire_.setDelay(1);
@@ -51,7 +59,6 @@ namespace olympia
         rob_stopped_notif_source_.reset(new sparta::NotificationSource<bool>(
             this->getContainer(), "rob_stopped_notif_channel", "ROB terminated simulation channel",
             "rob_stopped_notif_channel"));
-
         // Send initial credits to anyone that cares.  Probably Dispatch.
         sparta::StartupEvent(node, CREATE_SPARTA_HANDLER(ROB, sendInitialCredits_));
     }
@@ -67,6 +74,8 @@ namespace olympia
     {
         out_reorder_buffer_credits_.send(reorder_buffer_.capacity());
         ev_ensure_forward_progress_.schedule(retire_timeout_interval_);
+        ev_track_ipc_transitions_
+            .schedule(); // TODO: Only schedule this if we're running probabilistically
     }
 
     // An illustration of the use of the callback -- instead of
@@ -81,6 +90,75 @@ namespace olympia
         }
 
         ev_retire_.schedule(sparta::Clock::Cycle(0));
+    }
+
+    void ROB::trackIPCTransitions_()
+    {
+        ipc_transition_tracker_(prev_cycle_ipc_, last_num_retired_) += 1;
+        prev_cycle_ipc_ = last_num_retired_;
+        last_num_retired_ = 0;
+
+        if (getClock()->currentCycle() % 10000 == 0) // TODO: Make the check interval configurable
+        {
+            Eigen::VectorXd rows_sum = ipc_transition_tracker_.rowwise().sum();
+            bool all_visited_ = true;
+
+            for (int i = 0; i < rows_sum.size(); i++)
+            {
+                if (rows_sum(i) == 0.0)
+                {
+                    all_visited_ =
+                        false; // There must be a path from each IPC to at least one other IPC.
+                }
+            }
+            if (all_visited_)
+            {
+                Eigen::MatrixXd current_matrix =
+                    ipc_transition_tracker_.array().colwise() / rows_sum.array();
+                double max_diff =
+                    (current_matrix - prev_transition_probability_matrix_).cwiseAbs().maxCoeff();
+
+                // std::cout << "IPC Transition Tracker when all visited: \n"
+                //           << ipc_transition_tracker_ << std::endl;
+
+                if (max_diff < 0.0005)
+                { // TODO: Make threshold configurable;
+
+                    Eigen::VectorXd stationary_distribution =
+                        computeStationaryDistribution_(current_matrix);
+                    double expected_ipc = 0;
+
+                    for (int i = 0; i < stationary_distribution.size(); i++)
+                    {
+                        expected_ipc += (i * stationary_distribution(i));
+                    }
+
+                    std::cout << "Computed stationary distribution as: \n"
+                              << stationary_distribution << " with expected IPC:" << expected_ipc
+                              << " using matrix: \n"
+                              << ipc_transition_tracker_ << std::endl;
+
+                    rob_stopped_simulation_ = true;
+                    rob_stopped_notif_source_->postNotification(true);
+                    getScheduler()->stopRunning();
+                }
+
+                prev_transition_probability_matrix_ = current_matrix;
+            }
+        }
+
+        ev_track_ipc_transitions_.schedule(sparta::Clock::Cycle(1));
+    }
+
+    Eigen::VectorXd ROB::computeStationaryDistribution_(const Eigen::MatrixXd & P)
+    {
+        int n = P.rows();
+        Eigen::MatrixXd A = P.transpose() - Eigen::MatrixXd::Identity(n, n);
+        A.row(n - 1) = Eigen::RowVectorXd::Ones(n);
+
+        Eigen::VectorXd b = Eigen::VectorXd::Zero(n);
+        b(n - 1) = 1.0;
+        return A.fullPivLu().solve(b);
     }
 
     void ROB::handleFlush_(const FlushManager::FlushingCriteria & criteria)
@@ -245,6 +323,8 @@ namespace olympia
             out_reorder_buffer_credits_.send(retired_this_cycle);
             last_retirement_ = getClock()->currentCycle();
         }
+
+        last_num_retired_ = retired_this_cycle;
     }
 
     void ROB::dumpDebugContent_(std::ostream & output) const
