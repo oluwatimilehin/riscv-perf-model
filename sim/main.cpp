@@ -1,6 +1,6 @@
 // <main.cpp> -*- C++ -*-
 
-
+#include <cstdint>
 #include <iostream>
 
 #include "OlympiaSim.hpp" // Core model example simulator
@@ -12,22 +12,25 @@
 
 // User-friendly usage that correspond with sparta::app::CommandLineSimulator
 // options
-const char USAGE[] =
-    "Usage:\n"
-    "    [-i insts] [-r RUNTIME] [--show-tree] [--show-dag]\n"
-    "    [-p PATTERN VAL] [-c FILENAME]\n"
-    "    [-l PATTERN CATEGORY DEST]\n"
-    "    [-h,--help] <workload [stf trace or JSON]>\n"
-    "\n";
+const char USAGE[] = "Usage:\n"
+                     "    [-i insts] [-r RUNTIME] [--show-tree] [--show-dag]\n"
+                     "    [-p PATTERN VAL] [-c FILENAME]\n"
+                     "    [-l PATTERN CATEGORY DEST]\n"
+                     "    [-h,--help] <workload [stf trace or JSON]>\n"
+                     "\n";
 
 constexpr char VERSION_VARNAME[] = "version,v"; //!< Name of option to show version
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     uint64_t ilimit = 0;
     uint32_t num_cores = 1;
     std::string workload;
-    const char * WORKLOAD = "workload";
+    bool probabilistic_mode = false;
+    uint64_t convergence_check_interval = 10000;
+    double probabilistic_convergence_threshold = 0.00005;
+
+    const char* WORKLOAD = "workload";
 
     sparta::app::DefaultValues DEFAULTS;
     DEFAULTS.auto_summary_default = "off";
@@ -36,66 +39,87 @@ int main(int argc, char **argv)
 
     const std::string olympia_version = " " + std::string(OLYMPIA_VERSION);
     const std::string reproduction_info = "Git SHA: " + std::string(GIT_COMMIT_HASH);
-    sparta::SimulationInfo::getInstance() = sparta::SimulationInfo("Olympia RISC-V Perf Model ",
-                                                                    argc, 
-                                                                    argv, 
-                                                                    olympia_version.c_str(),
-                                                                    reproduction_info.c_str(), {});
+    sparta::SimulationInfo::getInstance() =
+        sparta::SimulationInfo("Olympia RISC-V Perf Model ", argc, argv, olympia_version.c_str(),
+                               reproduction_info.c_str(), {});
     const bool show_field_names = true;
     sparta::SimulationInfo::getInstance().write(std::cout, "# ", "\n", show_field_names);
     std::cout << "# Sparta Version: " << sparta::SimulationInfo::sparta_version << std::endl;
 
     // try/catch block to ensure proper destruction of the cls/sim classes in
     // the event of an error
-    try{
+    try
+    {
         // Helper class for parsing command line arguments, setting up the
         // simulator, and running the simulator. All of the things done by this
         // classs can be done manually if desired. Use the source for the
         // CommandLineSimulator class as a starting point
         sparta::app::CommandLineSimulator cls(USAGE, DEFAULTS);
-        auto& app_opts = cls.getApplicationOptions();
-        app_opts.add_options()
-            (VERSION_VARNAME,
-             "produce version message",
-             "produce version message") // Brief
+        auto & app_opts = cls.getApplicationOptions();
+        app_opts.add_options()(VERSION_VARNAME, "produce version message",
+                               "produce version message") // Brief
             ("instruction-limit,i",
              sparta::app::named_value<uint64_t>("LIMIT", &ilimit)->default_value(ilimit),
              "Limit the simulation to retiring a specific number of instructions. 0 (default) "
              "means no limit. If -r is also specified, the first limit reached ends the simulation",
              "End simulation after a number of instructions. Note that if set to 0, this may be "
-             "overridden by a node parameter within the simulator")
-            ("num-cores",
-             sparta::app::named_value<uint32_t>("CORES", &num_cores)->default_value(1),
-             "The number of cores in simulation", "The number of cores in simulation")
-            ("show-factories",
-             "Show the registered factories")
-            (WORKLOAD,
-             sparta::app::named_value<std::string>(WORKLOAD, &workload),
-             "Specifies the instruction workload (trace, JSON)");
+             "overridden by a node parameter within the simulator")(
+                "num-cores",
+                sparta::app::named_value<uint32_t>("CORES", &num_cores)->default_value(1),
+                "The number of cores in simulation", "The number of cores in simulation")(
+                "show-factories", "Show the registered factories")(
+                WORKLOAD, sparta::app::named_value<std::string>(WORKLOAD, &workload),
+                "Specifies the instruction workload (trace, JSON)")(
+                "probabilistic-mode", "Whether to perform a Markov-chain based simulation",
+                "Whether to perform a Markov-chain based simulation")(
+                "convergence-check-interval",
+                sparta::app::named_value<uint64_t>("CONVERGENCE_CHECK_INTERVAL",
+                                                   &convergence_check_interval)
+                    ->default_value(convergence_check_interval),
+                "How many cycles to wait before checking if the transition probabilities have "
+                "converged in probabilistic mode.")(
+                "convergence-threshold",
+                sparta::app::named_value<double>("CONVERGENCE_THRESHOLD",
+                                                 &probabilistic_convergence_threshold)
+                    ->default_value(probabilistic_convergence_threshold),
+                "Stop simulating when the maximum difference between elements in two consecutive "
+                "transition matrix checks is within the threshold. Enabled only in probabilistic "
+                "mode.");
 
         // Add any positional command-line options
-        po::positional_options_description& pos_opts = cls.getPositionalOptions();
+        po::positional_options_description & pos_opts = cls.getPositionalOptions();
         pos_opts.add(WORKLOAD, -1);
 
         // Parse command line options and configure simulator
         int err_code = 0;
-        if(!cls.parse(argc, argv, err_code)){
+        if (!cls.parse(argc, argv, err_code))
+        {
             return err_code; // Any errors already printed to cerr
         }
 
-        auto& vm = cls.getVariablesMap();
-        if(vm.count("auto-summary") == 0) {
-            std::cout << "olympia: Auto-summary reports are disabled in Olympia.  To enable, use '--auto-summary on'"
+        auto & vm = cls.getVariablesMap();
+        if (vm.count("auto-summary") == 0)
+        {
+            std::cout << "olympia: Auto-summary reports are disabled in Olympia.  To enable, use "
+                         "'--auto-summary on'"
                       << std::endl;
         }
 
         bool show_factories = false;
-        if(vm.count("show-factories") != 0) {
+        if (vm.count("show-factories") != 0)
+        {
             show_factories = true;
         }
 
-        if(workload.empty() && (0 == vm.count("no-run"))) {
-            std::cerr << "ERROR: Missing a workload to run.  Can be a trace or JSON file" << std::endl;
+        if (vm.count("probabilistic-mode") != 0)
+        {
+            probabilistic_mode = true;
+        }
+
+        if (workload.empty() && (0 == vm.count("no-run")))
+        {
+            std::cerr << "ERROR: Missing a workload to run.  Can be a trace or JSON file"
+                      << std::endl;
             std::cerr << USAGE;
             return -1;
         }
@@ -105,16 +129,18 @@ int main(int argc, char **argv)
         OlympiaSim sim(scheduler,
                        num_cores, // cores
                        workload,
-                       ilimit,
-                       show_factories); // run for ilimit instructions
+                       ilimit, // run for ilimit instructions
+                       show_factories, probabilistic_mode, convergence_check_interval,
+                       probabilistic_convergence_threshold);
 
         cls.populateSimulation(&sim);
 
         cls.runSimulator(&sim);
 
         cls.postProcess(&sim);
-
-    }catch(...){
+    }
+    catch (...)
+    {
         // Could still handle or log the exception here
         throw;
     }

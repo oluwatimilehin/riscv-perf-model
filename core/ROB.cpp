@@ -35,6 +35,9 @@ namespace olympia
         num_to_retire_(p->num_to_retire),
         num_insts_to_retire_(p->num_insts_to_retire),
         retire_heartbeat_(p->retire_heartbeat),
+        probabilistic_mode_(p->probabilistic_mode),
+        convergence_check_interval_(p->convergence_check_interval),
+        convergence_threshold_(p->convergence_threshold),
         reorder_buffer_("ReorderBuffer", p->retire_queue_depth, node->getClock(), &unit_stat_set_),
         ipc_transition_tracker_(Eigen::MatrixXd::Zero(p->num_to_retire + 1, p->num_to_retire + 1)),
         prev_transition_probability_matrix_(
@@ -74,8 +77,14 @@ namespace olympia
     {
         out_reorder_buffer_credits_.send(reorder_buffer_.capacity());
         ev_ensure_forward_progress_.schedule(retire_timeout_interval_);
-        ev_track_ipc_transitions_
-            .schedule(); // TODO: Only schedule this if we're running probabilistically
+
+        if (probabilistic_mode_)
+        {
+            std::cout << "Simulating in probabilistic mode with convergence check interval: "
+                      << convergence_check_interval_ << " and threshold: " << convergence_threshold_
+                      << std::endl;
+            ev_track_ipc_transitions_.schedule(sparta::Clock::Cycle(1));
+        }
     }
 
     // An illustration of the use of the callback -- instead of
@@ -98,7 +107,7 @@ namespace olympia
         prev_cycle_ipc_ = last_num_retired_;
         last_num_retired_ = 0;
 
-        if (getClock()->currentCycle() % 10000 == 0) // TODO: Make the check interval configurable
+        if (getClock()->currentCycle() % convergence_check_interval_ == 0)
         {
             Eigen::VectorXd rows_sum = ipc_transition_tracker_.rowwise().sum();
             bool all_visited_ = true;
@@ -118,12 +127,8 @@ namespace olympia
                 double max_diff =
                     (current_matrix - prev_transition_probability_matrix_).cwiseAbs().maxCoeff();
 
-                // std::cout << "IPC Transition Tracker when all visited: \n"
-                //           << ipc_transition_tracker_ << std::endl;
-
-                if (max_diff < 0.0005)
-                { // TODO: Make threshold configurable;
-
+                if (max_diff < convergence_threshold_)
+                {
                     Eigen::VectorXd stationary_distribution =
                         computeStationaryDistribution_(current_matrix);
                     double expected_ipc = 0;
@@ -134,7 +139,7 @@ namespace olympia
                     }
 
                     std::cout << "Computed stationary distribution as: \n"
-                              << stationary_distribution << " with expected IPC:" << expected_ipc
+                              << stationary_distribution << "\n with expected IPC:" << expected_ipc
                               << " using matrix: \n"
                               << ipc_transition_tracker_ << std::endl;
 
@@ -147,7 +152,7 @@ namespace olympia
             }
         }
 
-        ev_track_ipc_transitions_.schedule(sparta::Clock::Cycle(1));
+        // ev_track_ipc_transitions_.schedule(sparta::Clock::Cycle(1));
     }
 
     Eigen::VectorXd ROB::computeStationaryDistribution_(const Eigen::MatrixXd & P)
@@ -325,6 +330,11 @@ namespace olympia
         }
 
         last_num_retired_ = retired_this_cycle;
+
+        if (probabilistic_mode_)
+        {
+            ev_track_ipc_transitions_.schedule(sparta::Clock::Cycle(0));
+        }
     }
 
     void ROB::dumpDebugContent_(std::ostream & output) const
@@ -339,7 +349,8 @@ namespace olympia
     // Make sure the pipeline is making forward progress
     void ROB::checkForwardProgress_()
     {
-        if (getClock()->currentCycle() - last_retirement_ >= retire_timeout_interval_)
+        if (getClock()->currentCycle() - last_retirement_ >= retire_timeout_interval_
+            && !probabilistic_mode_)
         {
             sparta::SpartaException e;
             e << "Been a while since we've retired an instruction.  Is the pipe stalled "

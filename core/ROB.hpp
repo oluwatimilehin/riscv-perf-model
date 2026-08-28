@@ -46,8 +46,17 @@ namespace olympia
             PARAMETER(uint32_t, num_insts_to_retire, 0,
                       "Number of instructions to retire after which simulation will be "
                       "terminated. 0 means simulation will run until end of testcase")
+            PARAMETER(bool, probabilistic_mode, false,
+                      "Whether we are using the stationary distribution method to calculate IPC. "
+                      "Can be set from the command line. ")
+            PARAMETER(uint64_t, convergence_check_interval, 10000,
+                      "How many cycles to wait before checking if the transition probabilities "
+                      "have converged when simulating in probabilistic mode")
+            PARAMETER(double, convergence_threshold, 0.00005,
+                      "Maximum difference between consecutive transition probabilities before we "
+                      "stop simulating")
             PARAMETER(uint64_t, retire_heartbeat, 1000000, "Heartbeat printout threshold")
-            PARAMETER(sparta::Clock::Cycle, retire_timeout_interval, 1000000,
+            PARAMETER(sparta::Clock::Cycle, retire_timeout_interval, 10000,
                       "Retire timeout error threshold (in cycles). Amount of time elapsed when "
                       "nothing was retired")
         };
@@ -86,6 +95,9 @@ namespace olympia
         const uint32_t num_to_retire_;
         const uint32_t num_insts_to_retire_; // parameter from ilimit
         const uint64_t retire_heartbeat_;    // Retire heartbeat interval
+        const bool probabilistic_mode_;
+        const uint64_t convergence_check_interval_;
+        const double convergence_threshold_;
 
         InstQueue reorder_buffer_;
 

@@ -3,19 +3,20 @@
 #pragma once
 
 #include "sparta/app/Simulation.hpp"
+#include <cstdint>
 
-namespace olympia {
+namespace olympia
+{
     class CPUFactory;
     class OlympiaAllocators;
-}
+} // namespace olympia
 
 /*!
  * \brief OlympiaSim which builds the model and configures it
  */
 class OlympiaSim : public sparta::app::Simulation
 {
-public:
-
+  public:
     /*!
      * \brief Construct OlympiaSim
      * \param scheduler The Scheduler used in simulation
@@ -26,18 +27,21 @@ public:
      * \param instruction_limit The maximum number of instructions to
      *                          run.  0 means no limit
      * \param show_factories Print the registered factories to stdout
+     * \param probabilistic_mode Whether to simulate in probabilistic mode
+     * \param convergence_check_interval How many cycles to wait before checking if the transition
+     * probabilities have converged when simulating in probabilistic mode
+     *\param convergence_threshold Maximum difference between consecutive transition matrices before
+     *we stop simulating
      */
-    OlympiaSim(sparta::Scheduler & scheduler,
-               const uint32_t num_cores,
-               const std::string workload,
-               const uint64_t instruction_limit=0,
-               const bool show_factories = false);
+    OlympiaSim(sparta::Scheduler & scheduler, const uint32_t num_cores, const std::string workload,
+               const uint64_t instruction_limit = 0, const bool show_factories = false,
+               const bool probabilistic_mode = false, const uint64_t convergence_check_interval = 0,
+               const double convergence_threshold = 0.0);
 
     // Tear it down
     virtual ~OlympiaSim();
 
-private:
-
+  private:
     //////////////////////////////////////////////////////////////////////
     // Setup
 
@@ -74,7 +78,6 @@ private:
 
     //! Instruction limit (set up -i option on command line)
     const uint64_t instruction_limit_;
-
     /*!
      * \brief Get the factory for topology build
      */
@@ -84,4 +87,14 @@ private:
      * \brief Optional flag to print registered factories to console
      */
     const bool show_factories_;
+
+    // ! Whether to simulate in probabilistic mode
+    const bool probabilistic_mode_;
+
+    // ! How many cycles to wait before checking if the transition probabilities have converged when
+    // simulating in probabilistic mode
+    const uint64_t convergence_check_interval_;
+
+    // ! Maximum difference between consecutive transition matrices before we stop simulating
+    const double convergence_threshold_;
 };
