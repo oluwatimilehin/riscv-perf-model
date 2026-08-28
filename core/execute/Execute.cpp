@@ -51,12 +51,16 @@ namespace olympia
             pipe_target_end++;
             for (int pipe_idx = pipe_target_start; pipe_idx < pipe_target_end; ++pipe_idx)
             {
-                pipe_to_iq_mapping.push_back(iq_num);
+                pipe_to_iq_mapping.push_back(
+                    iq_num); // pipe_to_iq_mapping[i] = issue queue handling pipe i; where i
+                             // represents exe0, exe1, etc (or their renamed values)
             }
         }
         const auto exe_pipe_rename =
             olympia::coreutils::getPipeTopology(node->getParent(), "exe_pipe_rename");
         const auto pipelines = olympia::coreutils::getPipeTopology(node->getParent(), "pipelines");
+
+        // Create the execution pipes/pipelines
         for (size_t pipeidx = 0; pipeidx < pipelines.size(); ++pipeidx)
         {
             std::string iq_name = "iq" + std::to_string(pipe_to_iq_mapping[pipeidx]);
@@ -110,6 +114,7 @@ namespace olympia
         auto pipelines = olympia::coreutils::getPipeTopology(node->getParent(), "pipelines");
         std::unordered_map<std::string, int> exe_pipe_to_iq_number;
 
+        // Get the issue queue for each execution pipe
         for (size_t iq_num = 0; iq_num < issue_queue_to_pipe_map_.size(); ++iq_num)
         {
             auto iq = issue_queue_to_pipe_map_[iq_num];
@@ -181,7 +186,9 @@ namespace olympia
                     const auto pipe_name = pipelines[pipe_idx][pipe_target_idx];
                     const auto tgt_pipe = InstArchInfo::execution_pipe_map.find(pipe_name);
                     // const auto exe_unit_name = "exe" + std::to_string(pipe_idx);
-                    auto exe_unit_name = "exe" + std::to_string(pipe_idx);
+                    auto exe_unit_name =
+                        "exe" + std::to_string(pipe_idx); //.This should be in the parent loop, as
+                                                          // it's the same for the pipeline
                     if (exe_pipe_rename.size() > 0)
                     {
                         sparta_assert(
@@ -197,7 +204,14 @@ namespace olympia
                     olympia::IssueQueue* my_issue_queue =
                         issue_queues_[iq_num]->getResourceAs<olympia::IssueQueue*>();
                     my_issue_queue->setExePipeMapping(
-                        tgt_pipe->second, my_issue_queue->getExePipes().at(exe_unit_name));
+                        tgt_pipe->second,
+                        my_issue_queue->getExePipes().at(
+                            exe_unit_name)); // Map the target type (instruction type) to the
+                                             // execution unit. We have a mapping from the target
+                                             // type to the issue queue in the Dispatch class, but
+                                             // then this lets us know what execution unit we can
+                                             // send an instruction to once we get to the issue
+                                             // queue.
                 }
             }
         }

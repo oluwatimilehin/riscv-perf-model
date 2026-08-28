@@ -127,7 +127,8 @@ namespace olympia
             sparta::Scoreboard* scoreboard = nullptr;
 
             // reference counter for PRF
-            std::vector<Producer> reference_counter;
+            std::vector<Producer> reference_counter; // The item at index i represents the reference
+                                                     // counter for physical register i
 
             // list of free PRF that are available to map
             std::queue<uint32_t> freelist;

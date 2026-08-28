@@ -40,7 +40,8 @@ namespace olympia
             scoreboard_views_[rf].reset(new sparta::ScoreboardView(
                 getContainer()->getName(), core_types::regfile_names[rf], cpu_node));
         }
-        out_scheduler_credits_.send(scheduler_size_);
+        out_scheduler_credits_.send(
+            scheduler_size_); // Informs the dispatcher about its capacity to receive messages
     }
 
     void IssueQueue::onROBTerminate_(const bool & val) { rob_stopped_simulation_ = val; }
@@ -103,7 +104,8 @@ namespace olympia
         for (auto reg_file = 0; reg_file < core_types::RegFile::N_REGFILES; ++reg_file)
         {
             const auto srcs =
-                ex_inst->getRenameData().getSourceList(static_cast<core_types::RegFile>(reg_file));
+                ex_inst->getRenameData().getSourceList(static_cast<core_types::RegFile>(
+                    reg_file)); // Get the physical registers for the sources
 
             if (true == srcs.empty())
             {
@@ -130,7 +132,10 @@ namespace olympia
                     scoreboard_views_[reg_file]->registerReadyCallback(
                         src_bits, ex_inst->getUniqueID(),
                         [this, ex_inst](const sparta::Scoreboard::RegisterBitMask &)
-                        { this->handleOperandIssueCheck_(ex_inst); });
+                        {
+                            this->handleOperandIssueCheck_(ex_inst);
+                        }); // So we register a callback for when the bits get ready, which can be
+                            // out of order.
                     return false;
                 }
             };
@@ -163,6 +168,8 @@ namespace olympia
             ILOG("Sending to issue queue " << ex_inst);
             // will insert based on if in_order_issue_ is set
             // if it is, will be first in first out, if not it'll be by age, so by UniqueID (UID)
+            // i.e. FIFO means it'll be based on which instruction had its operands ready first,
+            // while UniqueID will be based on which instruction is older
             ready_queue_.insert(ex_inst);
             ev_issue_ready_inst_.schedule(sparta::Clock::Cycle(0));
         }

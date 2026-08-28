@@ -108,7 +108,7 @@ namespace olympia
         void dumpDebugContent_(std::ostream & output) const override final;
 
         sparta::DataInPort<InstQueue::value_type> in_execute_inst_{&unit_port_set_,
-                                                                   "in_execute_write", 1};
+                                                                   "in_execute_write", 1}; 
         // in_exe_pipe_done tells us an execution pipe is done
         sparta::DataInPort<uint32_t> in_exe_pipe_done_{&unit_port_set_, "in_execute_pipe"};
         sparta::DataOutPort<uint32_t> out_scheduler_credits_{&unit_port_set_,

@@ -55,6 +55,8 @@ namespace olympia
             const auto staring_arf = (reg_file == core_types::RegFile::RF_INTEGER ? 1 : 0);
             for (uint32_t areg = staring_arf; areg < NUM_RISCV_REGS_; areg++)
             {
+                // Initially, there's a 1-to-1 mapping from an architectural register to a physical
+                // register
                 map_table_[reg_file][areg] = num_regs_reserved++;
             }
 
@@ -85,6 +87,7 @@ namespace olympia
             }
             for (uint32_t j = num_regs_reserved; j < num_renames; ++j)
             {
+                // Then we set up additional physical registers with no references
                 rcomp.freelist.emplace(j);
                 reference_counter.emplace_back(0);
             }
@@ -168,7 +171,8 @@ namespace olympia
             scoreboard->set(bits);
         }
 
-        // Send the initial credit count
+        // Send the initial credit count to the decoder to let it know that you can start receiving
+        // data
         out_uop_queue_credits_.send(uop_queue_.capacity());
         stall_counters_[current_stall_].startCounting();
 
@@ -200,7 +204,8 @@ namespace olympia
         {
             if (SPARTA_EXPECT_TRUE(!dest.op_info.is_x0))
             {
-                const auto prev_dest = dest.prev_dest;
+                const auto prev_dest = dest.prev_dest; // We can release the previous destination if
+                                                       // the current destination has retired
                 sparta_assert(prev_dest != std::numeric_limits<uint32_t>::max());
                 auto & rcomp = regfile_components_[dest.op_info.reg_file];
                 auto & ref = rcomp.reference_counter[prev_dest];
@@ -230,8 +235,11 @@ namespace olympia
 
             for (auto reg_file = 0; reg_file < core_types::RegFile::N_REGFILES; ++reg_file)
             {
-                for (const auto & dest : inst_ptr->getRenameData().getDestList(
-                         static_cast<core_types::RegFile>(reg_file)))
+                for (const auto & dest :
+                     inst_ptr->getRenameData().getDestList(static_cast<core_types::RegFile>(
+                         reg_file))) // Get an instruction's destination(s) (there's typically
+                                     // only one, but are exemptions, and here, we use the physical
+                                     // register information from getRenameData().
                 {
                     reclaim_rename(inst_ptr, static_cast<core_types::RegFile>(reg_file), dest);
                 }
@@ -534,7 +542,8 @@ namespace olympia
         for (const auto & src : srcs)
         {
             const auto reg_file = src.reg_file;
-            const auto arch_num = src.field_value;
+            const auto arch_num = src.field_value; // This is the actual value of the operand, like
+                                                   // which architectural register it is.
             const bool is_x0 = src.is_x0;
             const bool is_rs2 = src.field_id == mavis::InstMetaData::OperandFieldID::RS2;
             const bool is_rs3 = src.field_id == mavis::InstMetaData::OperandFieldID::RS3;
@@ -553,7 +562,12 @@ namespace olympia
                 continue;
             }
 
-            const uint32_t prf = map_table_[reg_file][arch_num];
+            const uint32_t prf =
+                map_table_[reg_file]
+                          [arch_num]; // Get the prf that has already been assigned to the
+                                      // architectural register. Since it's a source operand here,
+                                      // then it must have been a destination operand earlier, so
+                                      // there'll be an assignment
 
             // For load/store, check if producing inst was a load
             if (renaming_inst->isLoadStoreInst())

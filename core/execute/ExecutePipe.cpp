@@ -118,7 +118,7 @@ namespace olympia
         execute_inst_.preparePayload(ex_inst)->schedule(exe_time);
     }
 
-    // Called by the scheduler, scheduled by complete_inst_.
+    // Called by the scheduler, scheduled by insert_inst_.
     void ExecutePipe::executeInst_(const InstPtr & ex_inst)
     {
         if (num_passes_needed_ != 0 && curr_num_pass_ < num_passes_needed_)
@@ -167,17 +167,18 @@ namespace olympia
             ++total_insts_executed_;
 
             // Schedule completion
-            complete_inst_.preparePayload(ex_inst)->schedule(1);
+            complete_inst_.preparePayload(ex_inst)->schedule(
+                1); // So we complete the instruction in the next cycle.
         }
     }
 
-    // Called by the scheduler, scheduled by complete_inst_.
+    // Called by the scheduler, scheduled by execute_inst_.
     void ExecutePipe::completeInst_(const InstPtr & ex_inst)
     {
         ex_inst->setStatus(Inst::Status::COMPLETED);
         complete_event_.collect(*ex_inst);
         ILOG("Completing inst: " << ex_inst);
-        out_execute_pipe_.send(1);
+        out_execute_pipe_.send(1); // Informs the issue queue that it can receive new instructions
     }
 
     void ExecutePipe::flushInst_(const FlushManager::FlushingCriteria & criteria)

@@ -161,10 +161,12 @@ namespace olympia
         }
         else
         {
-            if(0 == credits_rob_) {
+            if (0 == credits_rob_)
+            {
                 ILOG("no rob credits");
             }
-            else {
+            else
+            {
                 ILOG("no instructions to process");
             }
         }
@@ -349,7 +351,7 @@ namespace olympia
         output << "Dispatch Queue:" << std::endl;
         for (const auto & inst : dispatch_queue_)
         {
-            output <<  inst << std::endl;
+            output << inst << std::endl;
         }
     }
 

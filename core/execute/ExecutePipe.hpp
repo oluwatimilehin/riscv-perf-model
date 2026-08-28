@@ -79,8 +79,10 @@ namespace olympia
 
       private:
         // Ports and the set -- remove the ", 1" to experience a DAG issue!
-        sparta::DataInPort<InstQueue::value_type> in_execute_inst_{&unit_port_set_,
-                                                                   "in_execute_write", 1};
+        sparta::DataInPort<InstQueue::value_type> in_execute_inst_{
+            &unit_port_set_, "in_execute_write",
+            1}; // We don't seem to use this port at all in this class. insertInst() is the entry point for new
+                // instructions. Instead, we use the port in the issue queue
         sparta::DataOutPort<uint32_t> out_scheduler_credits_{&unit_port_set_,
                                                              "out_scheduler_credits"};
         sparta::DataOutPort<uint32_t> out_execute_pipe_{&unit_port_set_, "out_execute_pipe"};
@@ -106,7 +108,10 @@ namespace olympia
         // Events used to issue, execute and complete the instruction
         sparta::PayloadEvent<InstPtr> issue_inst_{
             &unit_event_set_, getName() + "_insert_inst",
-            CREATE_SPARTA_HANDLER_WITH_DATA(ExecutePipe, insertInst, InstPtr)};
+            CREATE_SPARTA_HANDLER_WITH_DATA(
+                ExecutePipe, insertInst,
+                InstPtr)}; // We don't seem to send a payload using this event. Instead, we just
+                           // call insertInst directly from the issue pipe.
         sparta::PayloadEvent<InstPtr> execute_inst_{
             &unit_event_set_, getName() + "_execute_inst",
             CREATE_SPARTA_HANDLER_WITH_DATA(ExecutePipe, executeInst_, InstPtr)};
