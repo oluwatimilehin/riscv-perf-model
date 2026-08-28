@@ -152,7 +152,7 @@ namespace olympia
             }
         }
 
-        // ev_track_ipc_transitions_.schedule(sparta::Clock::Cycle(1));
+        ev_track_ipc_transitions_.schedule(sparta::Clock::Cycle(1));
     }
 
     Eigen::VectorXd ROB::computeStationaryDistribution_(const Eigen::MatrixXd & P)
@@ -330,11 +330,6 @@ namespace olympia
         }
 
         last_num_retired_ = retired_this_cycle;
-
-        if (probabilistic_mode_)
-        {
-            ev_track_ipc_transitions_.schedule(sparta::Clock::Cycle(0));
-        }
     }
 
     void ROB::dumpDebugContent_(std::ostream & output) const
@@ -349,8 +344,7 @@ namespace olympia
     // Make sure the pipeline is making forward progress
     void ROB::checkForwardProgress_()
     {
-        if (getClock()->currentCycle() - last_retirement_ >= retire_timeout_interval_
-            && !probabilistic_mode_)
+        if (getClock()->currentCycle() - last_retirement_ >= retire_timeout_interval_)
         {
             sparta::SpartaException e;
             e << "Been a while since we've retired an instruction.  Is the pipe stalled "
