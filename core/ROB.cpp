@@ -1,11 +1,9 @@
 // <ROB.cpp> -*- C++ -*-
 
-#include <algorithm>
-#include <cstddef>
-#include <format>
 #include <iostream>
 #include <ostream>
-#include <vector>
+#include <numbers>
+
 #include "ROB.hpp"
 
 #include "sparta/utils/LogUtils.hpp"
@@ -44,7 +42,7 @@ namespace olympia
         retire_heartbeat_(p->retire_heartbeat),
         probabilistic_mode_(p->probabilistic_mode),
         convergence_check_interval_(p->convergence_check_interval),
-        convergence_threshold_(p->convergence_threshold),
+        convergence_threshold_(p->convergence_threshold / std::numbers::sqrt2),
         reorder_buffer_("ReorderBuffer", p->retire_queue_depth, node->getClock(), &unit_stat_set_),
         ipc_transition_tracker_(Eigen::MatrixXd::Zero(p->num_to_retire + 1, p->num_to_retire + 1)),
         prev_transition_probability_matrix_(
@@ -170,6 +168,8 @@ namespace olympia
 
                 prev_transition_probability_matrix_ = current_matrix;
             }
+
+            convergence_check_interval_ *= 2;
         }
 
         ev_track_ipc_transitions_.schedule(sparta::Clock::Cycle(1));

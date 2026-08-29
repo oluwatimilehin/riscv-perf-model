@@ -101,7 +101,7 @@ namespace olympia
         const uint32_t num_insts_to_retire_; // parameter from ilimit
         const uint64_t retire_heartbeat_;    // Retire heartbeat interval
         const bool probabilistic_mode_;
-        const uint64_t convergence_check_interval_;
+        uint64_t convergence_check_interval_;
         const double convergence_threshold_;
         bool terminate_without_convergence_ = false;
         InstQueue reorder_buffer_;
