@@ -72,6 +72,7 @@ def olympia_exec(
     match = re.search(r"wall\((\d+\.\d+)\)", output)
 
     wall_time = end_time - start_time
+    print(f"Output: {output}")
     if not match:
         print(
             f"Simulation ran too quickly to determine the wall time. Using the measured python time as wall time"
@@ -93,14 +94,9 @@ def run_trace(
     probabilistic_mode: bool = False,
     convergence_threshold: float = 0.00005,
     convergence_check_starting_interval: int = 10000,
-):
+) -> Dict[str, object]:
 
-    results = {
-        "probabilistic_mode": probabilistic_mode,
-        "num_runs": num_runs,
-        "trace": trace_path.name,
-        "config": config_path.name,
-    }
+    results: Dict[str, object] = {"probabilistic_mode": probabilistic_mode}
 
     if probabilistic_mode:
         results["convergence_threshold"] = convergence_threshold
@@ -114,7 +110,7 @@ def run_trace(
     all_retired_insts = []
 
     for i in range(num_runs):
-        single_res = olympia_exec(
+        single_res: Dict[str, object] = olympia_exec(
             trace_path,
             config_path,
             probabilistic_mode,
@@ -175,7 +171,7 @@ def run_trace(
 if __name__ == "__main__":
     traces_dir = Path(f"{EXECUTABLE_DIR}/traces")
 
-    trace_extensions = {".json", ".zstf", ".stf"}
+    trace_extensions = {".zstf", ".stf"}
     traces = [
         file
         for file in traces_dir.rglob("*")
@@ -187,7 +183,7 @@ if __name__ == "__main__":
         Path(f"{EXECUTABLE_DIR}/arches/small_core.yaml"),
         Path(f"{EXECUTABLE_DIR}/arches/medium_core.yaml"),
     ]
-    trace_results: Dict[str, List[object]] = defaultdict(list)
+    trace_results: Dict[str, object] = {}
 
     num_runs = 3
     convergence_threshold = 0.0005
@@ -198,7 +194,14 @@ if __name__ == "__main__":
     for trace in traces:
         trace_start_time = time.time()
         print(f"Processing {trace.name}")
+        single_trace_res = {
+            "trace": trace.name,
+            "num_runs": num_runs,
+        }
+
+        all_configs_results = []
         for config in configs:
+            config_res: Dict[str, object] = {"config": config.name}
             try:
                 deterministic_results = run_trace(num_runs, trace, config, False)
 
@@ -223,9 +226,12 @@ if __name__ == "__main__":
                 probabilistic_results["ipc"]["errorPct"] = (
                     (actual_ipc - probabilistic_computed_ipc) / actual_ipc
                 ) * 100
+                probabilistic_results["true_ipc"] = actual_ipc
 
-                trace_results[trace.stem].append(deterministic_results)
-                trace_results[trace.stem].append(probabilistic_results)
+                config_res["deterministic_results"] = deterministic_results
+                config_res["probabilistic_results"] = probabilistic_results
+
+                all_configs_results.append(config_res)
 
                 print(
                     f"Current results for {trace.name}: {json.dumps(trace_results[trace.stem])}"
@@ -235,10 +241,13 @@ if __name__ == "__main__":
                     f"Failed to process {trace.name} with config: {config.name}. Error: {e}"
                 )
 
+        single_trace_res["per_config_results"] = all_configs_results
         trace_end_time = time.time()
         print(
             f"Finished processing {trace.name} in {trace_end_time - trace_start_time} seconds"
         )
+
+        trace_results[trace.stem] = single_trace_res
 
     end_time = time.time()
 
