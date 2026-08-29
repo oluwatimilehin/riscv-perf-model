@@ -3,10 +3,11 @@ import re
 import statistics
 import subprocess
 import time
+import traceback
 
-from collections import defaultdict
 from typing import Dict, List
 from pathlib import Path
+from statistics import NormalDist
 
 import datetime
 
@@ -87,6 +88,26 @@ def olympia_exec(
     return results
 
 
+def confidence_interval(data, confidence=0.95):
+    dist = NormalDist.from_samples(data)
+    z = NormalDist().inv_cdf((1 + confidence) / 2.0)
+    h = dist.stdev * z / ((len(data) - 1) ** 0.5)
+    return dist.mean - h, dist.mean + h
+
+
+confidence_levels = [0.95, 0.97, 0.99]
+
+
+def calculate_confidence_levels(data) -> List[Dict[str, float]]:
+    results: List[Dict[str, float]] = []
+
+    for level in confidence_levels:
+        lower, upper = confidence_interval(data, level)
+        results.append({"level": level, "lower": lower, "upper": upper})
+
+    return results
+
+
 def run_trace(
     num_runs: int,
     trace_path: Path,
@@ -110,6 +131,7 @@ def run_trace(
     all_retired_insts = []
 
     for i in range(num_runs):
+        print(f"Run {i + 1} for trace: {trace}")
         single_res: Dict[str, object] = olympia_exec(
             trace_path,
             config_path,
@@ -154,6 +176,8 @@ def run_trace(
 
     if probabilistic_mode:
         results["ipc"]["stddev"] = statistics.stdev(ipcs)
+        results["ipc"]["confidence_intervals"] = calculate_confidence_levels(ipcs)
+
         stationary_distribution_ipc_stats = {}
         stationary_distribution_ipc_stats["values"] = stationary_distribution_ipcs
         stationary_distribution_ipc_stats["mean"] = statistics.mean(
@@ -161,6 +185,9 @@ def run_trace(
         )
         stationary_distribution_ipc_stats["stddev"] = statistics.stdev(
             stationary_distribution_ipcs
+        )
+        stationary_distribution_ipc_stats["confidence_intervals"] = (
+            calculate_confidence_levels(stationary_distribution_ipcs)
         )
 
         results["stationary_distribution_ipc"] = stationary_distribution_ipc_stats
@@ -183,20 +210,18 @@ if __name__ == "__main__":
         Path(f"{EXECUTABLE_DIR}/arches/small_core.yaml"),
         Path(f"{EXECUTABLE_DIR}/arches/medium_core.yaml"),
     ]
-    trace_results: Dict[str, object] = {}
-
-    num_runs = 3
+    num_runs = 10
     convergence_threshold = 0.0005
     convergence_check_starting_interval = 10000
 
     start_time = time.time()
+    trace_results: Dict[str, object] = {"num_runs": num_runs}
 
     for trace in traces:
         trace_start_time = time.time()
         print(f"Processing {trace.name}")
         single_trace_res = {
             "trace": trace.name,
-            "num_runs": num_runs,
         }
 
         all_configs_results = []
@@ -234,11 +259,13 @@ if __name__ == "__main__":
                 all_configs_results.append(config_res)
 
                 print(
-                    f"Current results for {trace.name}: {json.dumps(trace_results[trace.stem])}"
+                    f"Current results for {trace.name}: {json.dumps(all_configs_results)}"
                 )
             except Exception as e:
                 print(
-                    f"Failed to process {trace.name} with config: {config.name}. Error: {e}"
+                    f"Failed to process {trace.name} with config: {config.name}.\n"
+                    f"Error Details: {e}\n"
+                    f"Traceback:\n{traceback.format_exc()}"
                 )
 
         single_trace_res["per_config_results"] = all_configs_results
