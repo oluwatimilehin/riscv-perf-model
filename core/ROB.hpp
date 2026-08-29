@@ -17,6 +17,7 @@
 #include "sparta/statistics/Counter.hpp"
 #include "sparta/statistics/StatisticDef.hpp"
 #include "sparta/statistics/StatisticInstance.hpp"
+#include "sparta/statistics/ExpressionNodeVariables.hpp"
 
 #include "CoreTypes.hpp"
 #include "InstGroup.hpp"
@@ -81,10 +82,14 @@ namespace olympia
 
       private:
         // Stats and counters
-        sparta::StatisticDef stat_ipc_;    // A simple expression to calculate IPC
-        sparta::Counter num_retired_;      // Running counter of number of instructions retired
-        sparta::Counter num_uops_retired_; // Running counter of the number of uops retired
-        sparta::Counter num_flushes_;      // Number of flushes
+        sparta::StatisticDef stat_ipc_; // A simple expression to calculate IPC
+        double stationary_distribution_ipc_ = 0.0;
+        sparta::StatisticDef
+            stat_stationary_distribution_ipc_; // IPC calculated using the stationary distribution
+                                               // when simulating in probabilistic mode.
+        sparta::Counter num_retired_;          // Running counter of number of instructions retired
+        sparta::Counter num_uops_retired_;     // Running counter of the number of uops retired
+        sparta::Counter num_flushes_;          // Number of flushes
         sparta::StatisticInstance
             overall_ipc_si_; // An overall IPC statistic instance starting at time == 0
         sparta::StatisticInstance

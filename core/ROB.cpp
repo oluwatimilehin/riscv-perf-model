@@ -20,6 +20,13 @@ namespace olympia
         sparta::Unit(node),
         stat_ipc_(&unit_stat_set_, "ipc", "Instructions retired per cycle", &unit_stat_set_,
                   "total_number_retired/cycles"),
+        stationary_distribution_ipc_(0.0),
+        stat_stationary_distribution_ipc_(
+            &unit_stat_set_, "stationary_dist_ipc",
+            "IPC according to the transition probabilites matrix", &unit_stat_set_,
+            sparta::StatisticDef::ExpressionArg(
+                sparta::Expression(new sparta::statistics::expression::ReferenceVariable(
+                    "stationary_distribution_ipc", stationary_distribution_ipc_)))),
         num_retired_(&unit_stat_set_, "total_number_retired",
                      "The total number of instructions retired by this core",
                      sparta::Counter::COUNT_NORMAL),
@@ -43,6 +50,10 @@ namespace olympia
         prev_transition_probability_matrix_(
             Eigen::MatrixXd::Zero(p->num_to_retire + 1, p->num_to_retire + 1))
     {
+        // if (probabilistic_mode_)
+        // {
+        // }
+
         // Set a cycle delay on the retire, just for kicks
         ev_retire_.setDelay(1);
 
@@ -151,6 +162,7 @@ namespace olympia
                               << " using matrix: \n"
                               << ipc_transition_tracker_ << std::endl;
 
+                    stationary_distribution_ipc_ = expected_ipc;
                     rob_stopped_simulation_ = true;
                     rob_stopped_notif_source_->postNotification(true);
                     getScheduler()->stopRunning();
