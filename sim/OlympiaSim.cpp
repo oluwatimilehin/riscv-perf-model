@@ -19,6 +19,7 @@
 OlympiaSim::OlympiaSim(sparta::Scheduler & scheduler, const uint32_t num_cores,
                        const std::string workload, const uint64_t instruction_limit,
                        const bool show_factories, const bool probabilistic_mode,
+                       const std::string convergence_metric,
                        const uint64_t convergence_check_interval,
                        const double convergence_threshold) :
     sparta::app::Simulation("sparta_olympia", &scheduler),
@@ -27,6 +28,7 @@ OlympiaSim::OlympiaSim(sparta::Scheduler & scheduler, const uint32_t num_cores,
     instruction_limit_(instruction_limit),
     show_factories_(show_factories),
     probabilistic_mode_(probabilistic_mode),
+    convergence_metric_(convergence_metric),
     convergence_check_interval_(convergence_check_interval),
     convergence_threshold_(convergence_threshold)
 {
@@ -117,6 +119,11 @@ void OlympiaSim::configureTree_()
         sparta::ParameterBase* rob_probabilistic_mode =
             getRoot()->getChildAs<sparta::ParameterBase>("cpu.core0.rob.params.probabilistic_mode");
         rob_probabilistic_mode->setValueFromString("true");
+
+        sparta::ParameterBase* convergence_metric =
+            getRoot()->getChildAs<sparta::ParameterBase>("cpu.core0.rob.params.convergence_metric");
+
+        convergence_metric->setValueFromString(convergence_metric_);
 
         sparta::ParameterBase* convergence_check_interval =
             getRoot()->getChildAs<sparta::ParameterBase>(

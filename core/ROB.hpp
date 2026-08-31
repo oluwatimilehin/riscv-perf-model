@@ -50,11 +50,14 @@ namespace olympia
             PARAMETER(bool, probabilistic_mode, false,
                       "Whether we are using the stationary distribution method to calculate IPC. "
                       "Can be set from the command line. ")
+            PARAMETER(std::string, convergence_metric, "current_ipc",
+                      "Options are 'current_ipc' and 'expected_ipc'")
             PARAMETER(uint64_t, convergence_check_interval, 10000,
-                      "How many cycles to wait before checking if the transition probabilities "
-                      "have converged when simulating in probabilistic mode")
+                      "How many cycles to wait before checking if the convergence metric  "
+                      "has converged when simulating in probabilistic mode")
             PARAMETER(double, convergence_threshold, 0.00005,
-                      "Maximum difference between consecutive transition probabilities before we "
+                      "Maximum difference between values of the convergence metric in consecutive "
+                      "intervals before we "
                       "stop simulating")
             PARAMETER(uint64_t, retire_heartbeat, 1000000, "Heartbeat printout threshold")
             PARAMETER(sparta::Clock::Cycle, retire_timeout_interval, 10000,
@@ -86,7 +89,10 @@ namespace olympia
         double stationary_distribution_ipc_ = 0.0;
         sparta::StatisticDef
             stat_stationary_distribution_ipc_; // IPC calculated using the stationary distribution
-                                               // when simulating in probabilistic mode.
+                                               // when simulating in probabilistic mode. We take a
+                                               // reference to the stationary_distribution_ipc_
+                                               // value. There might be a better way to define a
+                                               // custom metric but this will do for now.
         sparta::Counter num_retired_;          // Running counter of number of instructions retired
         sparta::Counter num_uops_retired_;     // Running counter of the number of uops retired
         sparta::Counter num_flushes_;          // Number of flushes
@@ -101,13 +107,16 @@ namespace olympia
         const uint32_t num_insts_to_retire_; // parameter from ilimit
         const uint64_t retire_heartbeat_;    // Retire heartbeat interval
         const bool probabilistic_mode_;
+        const std::string convergence_metric_;
         uint64_t convergence_check_interval_;
         const double convergence_threshold_;
         bool terminate_without_convergence_ = false;
         InstQueue reorder_buffer_;
 
         Eigen::MatrixXd ipc_transition_tracker_;
-        Eigen::MatrixXd prev_transition_probability_matrix_; // For testing convergence
+        double last_recorded_ipc_; // For testing convergence when simulating in probabilistic mode;
+
+        // For computing the stationary distribution
         uint32_t last_num_retired_ = 0;
         uint32_t prev_cycle_ipc_ = 0;
 
@@ -149,6 +158,10 @@ namespace olympia
             &unit_event_set_, "track_ipc_transitions",
             CREATE_SPARTA_HANDLER(ROB, trackIPCTransitions_)};
 
+        sparta::UniqueEvent<> ev_track_current_ipc_convergence_{
+            &unit_event_set_, "track_current_ipc_convergence",
+            CREATE_SPARTA_HANDLER(ROB, trackCurrentIPCConvergence_)};
+
         // For correlation activities
         sparta::pevents::PeventCollector<InstPEventPairs> retire_event_{"RETIRE", getContainer(),
                                                                         getClock()};
@@ -171,6 +184,7 @@ namespace olympia
         void retireInstructions_();
         void checkForwardProgress_();
         void trackIPCTransitions_();
+        void trackCurrentIPCConvergence_();
         Eigen::VectorXd computeStationaryDistribution_(const Eigen::MatrixXd & matrix);
         void handleFlush_(const FlushManager::FlushingCriteria & criteria);
         void dumpDebugContent_(std::ostream & output) const override final;

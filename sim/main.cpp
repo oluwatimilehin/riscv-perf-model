@@ -27,6 +27,7 @@ int main(int argc, char** argv)
     uint32_t num_cores = 1;
     std::string workload;
     bool probabilistic_mode = false;
+    std::string convergence_metric = "current_ipc";
     uint64_t convergence_check_interval = 10000;
     double probabilistic_convergence_threshold = 0.00005;
 
@@ -72,18 +73,24 @@ int main(int argc, char** argv)
                 "Specifies the instruction workload (trace, JSON)")(
                 "probabilistic-mode", "Whether to perform a Markov-chain based simulation",
                 "Whether to perform a Markov-chain based simulation")(
-                "convergence-check-interval",
-                sparta::app::named_value<uint64_t>("CONVERGENCE_CHECK_INTERVAL",
-                                                   &convergence_check_interval)
-                    ->default_value(convergence_check_interval),
-                "How many cycles to wait before checking if the transition probabilities have "
-                "converged in probabilistic mode.")(
+                "convergence-metric",
+                sparta::app::named_value<std::string>("CONVERGENCE_METRIC", &convergence_metric)
+                    ->default_value(convergence_metric),
+                "Whether to use the current ipc value (total instructions retired/current cycle "
+                "count) or the expected IPC value (using the stationary distribution) as the "
+                "convergence metric in probabilistic mode. Possible values are 'current_ipc' or "
+                "'expected_ipc")("convergence-check-interval",
+                                 sparta::app::named_value<uint64_t>("CONVERGENCE_CHECK_INTERVAL",
+                                                                    &convergence_check_interval)
+                                     ->default_value(convergence_check_interval),
+                                 "How many cycles between consecutive checks of the convergence "
+                                 "criteria in probabilistic mode.")(
                 "convergence-threshold",
                 sparta::app::named_value<double>("CONVERGENCE_THRESHOLD",
                                                  &probabilistic_convergence_threshold)
                     ->default_value(probabilistic_convergence_threshold),
-                "Stop simulating when the maximum difference between elements in two consecutive "
-                "transition matrix checks is within the threshold. Enabled only in probabilistic "
+                "Stop simulating when the maximum difference between the convergence metric value "
+                "is within the threshold. Enabled only in probabilistic "
                 "mode.");
 
         // Add any positional command-line options
@@ -130,8 +137,8 @@ int main(int argc, char** argv)
                        num_cores, // cores
                        workload,
                        ilimit, // run for ilimit instructions
-                       show_factories, probabilistic_mode, convergence_check_interval,
-                       probabilistic_convergence_threshold);
+                       show_factories, probabilistic_mode, convergence_metric,
+                       convergence_check_interval, probabilistic_convergence_threshold);
 
         cls.populateSimulation(&sim);
 

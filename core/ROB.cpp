@@ -1,14 +1,14 @@
 // <ROB.cpp> -*- C++ -*-
 
+#include <cstdlib>
 #include <iostream>
 #include <ostream>
-#include <numbers>
+#include <sparta/simulation/Clock.hpp>
 
 #include "ROB.hpp"
 
 #include "sparta/utils/LogUtils.hpp"
 #include "sparta/events/StartupEvent.hpp"
-#include "CoreUtils.hpp"
 
 namespace olympia
 {
@@ -41,19 +41,21 @@ namespace olympia
         num_insts_to_retire_(p->num_insts_to_retire),
         retire_heartbeat_(p->retire_heartbeat),
         probabilistic_mode_(p->probabilistic_mode),
+        convergence_metric_(p->convergence_metric),
         convergence_check_interval_(p->convergence_check_interval),
-        convergence_threshold_(p->convergence_threshold / std::numbers::sqrt2),
+        convergence_threshold_(p->convergence_threshold),
         reorder_buffer_("ReorderBuffer", p->retire_queue_depth, node->getClock(), &unit_stat_set_),
         ipc_transition_tracker_(Eigen::MatrixXd::Zero(p->num_to_retire + 1, p->num_to_retire + 1)),
-        prev_transition_probability_matrix_(
-            Eigen::MatrixXd::Zero(p->num_to_retire + 1, p->num_to_retire + 1))
+        last_recorded_ipc_(0.0)
     {
-        // if (probabilistic_mode_)
-        // {
-        // }
+        sparta_assert(
+            probabilistic_mode_
+                && (convergence_metric_ == "expected_ipc" || convergence_metric_ == "current_ipc"),
+            "Convergence metric in probabilistic mode should be either 'current_ipc' or "
+            "'expected_ipc")
 
-        // Set a cycle delay on the retire, just for kicks
-        ev_retire_.setDelay(1);
+            // Set a cycle delay on the retire, just for kicks
+            ev_retire_.setDelay(1);
 
         // Set up the reorder buffer to support pipeline collection.
         reorder_buffer_.enableCollection(node);
@@ -89,10 +91,18 @@ namespace olympia
 
         if (probabilistic_mode_)
         {
-            std::cout << "Simulating in probabilistic mode with convergence check interval: "
-                      << convergence_check_interval_ << " and threshold: " << convergence_threshold_
-                      << std::endl;
-            ev_track_ipc_transitions_.schedule(sparta::Clock::Cycle(1));
+            std::cout << "Simulating in probabilistic mode with convergence metric: "
+                      << convergence_metric_ << ", check interval: " << convergence_check_interval_
+                      << " and threshold: " << convergence_threshold_ << std::endl;
+            if (convergence_metric_ == "expected_ipc")
+            {
+                ev_track_ipc_transitions_.schedule(sparta::Clock::Cycle(1));
+            }
+            else
+            {
+                ev_track_current_ipc_convergence_.schedule(
+                    sparta::Clock::Cycle(convergence_check_interval_));
+            }
         }
     }
 
@@ -110,6 +120,23 @@ namespace olympia
         ev_retire_.schedule(sparta::Clock::Cycle(0));
     }
 
+    void ROB::trackCurrentIPCConvergence_()
+    {
+        const double current_ipc = overall_ipc_si_.getValue();
+        if (abs(current_ipc - last_recorded_ipc_) < convergence_threshold_
+            || terminate_without_convergence_)
+        {
+            std::cout << "Returning IPC as " << current_ipc << " after "
+                      << getClock()->currentCycle() << " cycles." << std::endl;
+            rob_stopped_simulation_ = true;
+            rob_stopped_notif_source_->postNotification(true);
+            getScheduler()->stopRunning();
+        }
+        last_recorded_ipc_ = current_ipc;
+        ev_track_current_ipc_convergence_.schedule(
+            sparta::Clock::Cycle(convergence_check_interval_));
+    }
+
     void ROB::trackIPCTransitions_()
     {
         ipc_transition_tracker_(prev_cycle_ipc_, last_num_retired_) += 1;
@@ -119,12 +146,6 @@ namespace olympia
         if (getClock()->currentCycle() % convergence_check_interval_ == 0
             || terminate_without_convergence_)
         {
-            if (terminate_without_convergence_)
-            {
-                std::cout << "Computing stationary distribution without convergence as the last "
-                             "retirement exceeded the retire timeout interval."
-                          << std::endl;
-            }
 
             Eigen::VectorXd rows_sum = ipc_transition_tracker_.rowwise().sum();
             bool all_visited_ = true;
@@ -133,28 +154,27 @@ namespace olympia
             {
                 if (rows_sum(i) == 0.0)
                 {
-                    all_visited_ =
-                        false; // There must be a path from each IPC to at least one other IPC.
+                    all_visited_ = false; // There must be a path from each IPC to at least one
+                                          // other IPC to get a unique stationary distribution.
                 }
             }
             if (all_visited_ || terminate_without_convergence_)
             {
                 Eigen::MatrixXd current_matrix =
                     ipc_transition_tracker_.array().colwise() / rows_sum.array();
-                double max_diff =
-                    (current_matrix - prev_transition_probability_matrix_).cwiseAbs().maxCoeff();
 
-                if (max_diff < convergence_threshold_)
+                Eigen::VectorXd stationary_distribution =
+                    computeStationaryDistribution_(current_matrix);
+                double expected_ipc = 0;
+
+                for (int i = 0; i < stationary_distribution.size(); i++)
                 {
-                    Eigen::VectorXd stationary_distribution =
-                        computeStationaryDistribution_(current_matrix);
-                    double expected_ipc = 0;
+                    expected_ipc += (i * stationary_distribution(i));
+                }
 
-                    for (int i = 0; i < stationary_distribution.size(); i++)
-                    {
-                        expected_ipc += (i * stationary_distribution(i));
-                    }
-
+                if (abs(expected_ipc - last_recorded_ipc_) < convergence_threshold_
+                    || terminate_without_convergence_)
+                {
                     std::cout << "Computed stationary distribution as: \n"
                               << stationary_distribution << "\n with expected IPC:" << expected_ipc
                               << " using matrix: \n"
@@ -166,10 +186,8 @@ namespace olympia
                     getScheduler()->stopRunning();
                 }
 
-                prev_transition_probability_matrix_ = current_matrix;
+                last_recorded_ipc_ = expected_ipc;
             }
-
-            convergence_check_interval_ *= 2;
         }
 
         ev_track_ipc_transitions_.schedule(sparta::Clock::Cycle(1));
@@ -376,6 +394,10 @@ namespace olympia
             {
                 throw e;
             }
+            std::cout << "Probabilistic mode simulation appears to have stalled indefinitely as "
+                         "the last retirement exceeded the maximum timeout interval. Simulation "
+                         "will terminate without IPC convergence."
+                      << std::endl;
         }
         ev_ensure_forward_progress_.schedule(retire_timeout_interval_);
     }

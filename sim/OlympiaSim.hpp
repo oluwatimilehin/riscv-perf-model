@@ -28,14 +28,18 @@ class OlympiaSim : public sparta::app::Simulation
      *                          run.  0 means no limit
      * \param show_factories Print the registered factories to stdout
      * \param probabilistic_mode Whether to simulate in probabilistic mode
-     * \param convergence_check_interval How many cycles to wait before checking if the transition
-     * probabilities have converged when simulating in probabilistic mode
-     *\param convergence_threshold Maximum difference between consecutive transition matrices before
-     *we stop simulating
+     * \param convergence_metric  Whether to use the expected_ipc or current_ipc to determine when
+     * to terminate simulation
+     * \param convergence_check_interval How many cycles between consecutive checks of the
+     *convergence criteria in probabilistic mode.
+     * \param convergence_threshold Maximum difference between consecutive convergence matrix values
+     *before we stop simulating
      */
     OlympiaSim(sparta::Scheduler & scheduler, const uint32_t num_cores, const std::string workload,
                const uint64_t instruction_limit = 0, const bool show_factories = false,
-               const bool probabilistic_mode = false, const uint64_t convergence_check_interval = 0,
+               const bool probabilistic_mode = false,
+               const std::string convergence_metric = "current_ipc",
+               const uint64_t convergence_check_interval = 0,
                const double convergence_threshold = 0.0);
 
     // Tear it down
@@ -91,10 +95,13 @@ class OlympiaSim : public sparta::app::Simulation
     // ! Whether to simulate in probabilistic mode
     const bool probabilistic_mode_;
 
-    // ! How many cycles to wait before checking if the transition probabilities have converged when
-    // simulating in probabilistic mode
+    //! Whether to use the expected_ipc or current_ipc to determine when to terminate simulation
+    const std::string convergence_metric_;
+
+    // !How many cycles between consecutive checks of the convergence criteria in probabilistic
+    // mode.
     const uint64_t convergence_check_interval_;
 
-    // ! Maximum difference between consecutive transition matrices before we stop simulating
+    // ! Maximum difference between consecutive convergence metric values
     const double convergence_threshold_;
 };
