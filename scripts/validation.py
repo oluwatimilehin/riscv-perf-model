@@ -168,13 +168,12 @@ def run_trace(
             )  # Use the stationary distribution IPC if we're using the expected_ipc metric
 
     mean = statistics.mean(ipcs)
-    ipc = {"values": ipcs, "mean": mean}
+    ipc = {"mean": mean}
     execution_time = {
-        "values": execution_times,
         "mean": statistics.mean(execution_times),
+        "stddev": statistics.stdev(execution_times),
     }
     retired_insts = {
-        "values": all_retired_insts,
         "mean": statistics.mean(all_retired_insts),
     }
 
@@ -183,10 +182,12 @@ def run_trace(
     results["retired_insts"] = retired_insts
 
     if probabilistic_mode:
-        stddev = statistics.stdev(ipcs)
-        results["ipc"]["stddev"] = stddev
+        results["retired_insts"]["stddev"] = statistics.stdev(all_retired_insts)
+
+        ipc_stddev = statistics.stdev(ipcs)
+        results["ipc"]["stddev"] = ipc_stddev
         results["ipc"]["confidence_intervals"] = calculate_confidence_levels(ipcs)
-        results["ipc"]["coefficient_of_variation_pct"] = (stddev / mean) * 100
+        results["ipc"]["coefficient_of_variation_pct"] = (ipc_stddev / mean) * 100
     return results
 
 
@@ -311,7 +312,9 @@ if __name__ == "__main__":
         else f"results/{convergence_metric}"
     )
 
-    print(f"Processing traces: {traces}")
+    print(
+        f"Processing traces: {traces} with {num_runs} runs for each config: {configs}"
+    )
     for trace in traces:
         single_trace_res = {
             "trace": trace.name,
