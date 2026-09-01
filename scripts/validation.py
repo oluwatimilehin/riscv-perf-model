@@ -10,10 +10,9 @@ import subprocess
 import time
 import traceback
 
-
-from typing import Dict, List
 from pathlib import Path
 from statistics import NormalDist
+from typing import Dict, List
 
 import datetime
 
@@ -101,7 +100,8 @@ def confidence_interval(data, confidence=0.95):
     dist = NormalDist.from_samples(data)
     z = NormalDist().inv_cdf((1 + confidence) / 2.0)
     h = dist.stdev * z / ((len(data) - 1) ** 0.5)
-    return dist.mean - h, dist.mean + h
+    half_width_pct = (h / dist.mean) * 100
+    return dist.mean - h, dist.mean + h, half_width_pct
 
 
 confidence_levels = [0.95, 0.97, 0.99]
@@ -111,8 +111,15 @@ def calculate_confidence_levels(data) -> List[Dict[str, float]]:
     results: List[Dict[str, float]] = []
 
     for level in confidence_levels:
-        lower, upper = confidence_interval(data, level)
-        results.append({"level": level, "lower": lower, "upper": upper})
+        lower, upper, half_width_pct = confidence_interval(data, level)
+        results.append(
+            {
+                "level": level,
+                "lower": lower,
+                "upper": upper,
+                "half_width_pct": half_width_pct,
+            }
+        )
 
     return results
 
@@ -199,6 +206,9 @@ def hash_simulation_config(
     return base64.urlsafe_b64encode(hasher.digest()[:6]).decode("utf-8")
 
 
+
+
+
 if __name__ == "__main__":
     traces_dir = Path(f"{EXECUTABLE_DIR}/traces")
     trace_extensions = {".zstf", ".stf"}
@@ -256,6 +266,13 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "--overwrite-results",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Whether to re-run a simulation if we have previously cached results for a trace and config combo.",
+    )
+
+    parser.add_argument(
         "--convergence-metric",
         type=str,
         default="current_ipc",
@@ -299,6 +316,7 @@ if __name__ == "__main__":
     convergence_metric = args.convergence_metric
     convergence_threshold = args.convergence_threshold
     convergence_check_interval = args.convergence_check_interval
+    overwrite_results = args.overwrite_results
 
     start_time = time.time()
     trace_results: Dict[str, object] = {"num_runs": num_runs}
@@ -345,7 +363,7 @@ if __name__ == "__main__":
 
                 result_file_path = Path(f"{results_dir}/{result_file_name_prefix}.json")
 
-                if result_file_path.is_file():
+                if result_file_path.is_file() and not overwrite_results:
                     print(f"Already simulated {trace.name} with {config}")
                     continue
 
@@ -367,13 +385,16 @@ if __name__ == "__main__":
                     if deterministic_file_path.is_file():
                         print(f"Found existing {deterministic_file_path}")
                         with open(deterministic_file_path) as f:
-                            actual_ipc = json.load(f)["results"]["ipc"]["mean"]
+                            actual_results = json.load(f)["results"]
+                            actual_ipc = actual_results["ipc"]["mean"]
                             computed_ipc = results["ipc"]["mean"]
                             results["ipc"]["actual_ipc"] = actual_ipc
                             results["ipc"]["error_pct"] = (
                                 (actual_ipc - computed_ipc) / actual_ipc
                             ) * 100
-                            
+
+                            actual_insts = actual_results["retired_insts"]["mean"]
+                            results["retired_insts"]["actual"] = actual_insts
 
                 single_trace_res["results"] = results
 
