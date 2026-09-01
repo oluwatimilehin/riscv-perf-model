@@ -1,0 +1,35 @@
+{
+    "trace": "core_riscv.zstf",
+    "num_runs": 10,
+    "probabilistic_mode": false,
+    "config": "medium_core.yaml",
+    "results": {
+        "ipc": {
+            "values": [
+                1.19276
+            ],
+            "mean": 1.19276
+        },
+        "execution_time": {
+            "values": [
+                11.21,
+                11.26,
+                11.29,
+                10.08,
+                11.12,
+                10.95,
+                11.33,
+                10.36,
+                10.78,
+                11.28
+            ],
+            "mean": 10.966
+        },
+        "retired_insts": {
+            "values": [
+                3546808
+            ],
+            "mean": 3546808
+        }
+    }
+}

@@ -1,0 +1,35 @@
+{
+    "trace": "dhrystone_opt1.zstf",
+    "num_runs": 10,
+    "probabilistic_mode": false,
+    "config": "small_core.yaml",
+    "results": {
+        "ipc": {
+            "values": [
+                0.958708
+            ],
+            "mean": 0.958708
+        },
+        "execution_time": {
+            "values": [
+                1.76,
+                0.94,
+                0.93,
+                1.14,
+                1.55,
+                1.14,
+                0.93,
+                0.94,
+                0.92,
+                0.94
+            ],
+            "mean": 1.119
+        },
+        "retired_insts": {
+            "values": [
+                287020
+            ],
+            "mean": 287020
+        }
+    }
+}

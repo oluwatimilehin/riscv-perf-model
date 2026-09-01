@@ -1,0 +1,35 @@
+{
+    "trace": "dhry_riscv.zstf",
+    "num_runs": 10,
+    "probabilistic_mode": false,
+    "config": "big_core.yaml",
+    "results": {
+        "ipc": {
+            "values": [
+                0.955771
+            ],
+            "mean": 0.955771
+        },
+        "execution_time": {
+            "values": [
+                9.11,
+                8.27,
+                9.15,
+                9.32,
+                8.66,
+                8.62,
+                9.09,
+                9.17,
+                8.35,
+                8.41
+            ],
+            "mean": 8.815
+        },
+        "retired_insts": {
+            "values": [
+                2390026
+            ],
+            "mean": 2390026
+        }
+    }
+}
