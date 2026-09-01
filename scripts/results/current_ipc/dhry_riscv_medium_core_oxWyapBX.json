@@ -1,0 +1,47 @@
+{
+    "trace": "dhry_riscv.zstf",
+    "num_runs": 10,
+    "probabilistic_mode": true,
+    "convergence_threshold": 0.0005,
+    "convergence_check_interval": 10000,
+    "convergence_metric": "current_ipc",
+    "config": "medium_core.yaml",
+    "results": {
+        "ipc": {
+            "mean": 0.875209,
+            "stddev": 0.1251183258022403,
+            "confidence_intervals": [
+                {
+                    "level": 0.95,
+                    "lower": 0.7934665292072202,
+                    "upper": 0.9569514707927799,
+                    "half_width_pct": 9.339765792259886
+                },
+                {
+                    "level": 0.97,
+                    "lower": 0.7847029750390228,
+                    "upper": 0.9657150249609773,
+                    "half_width_pct": 10.341075670037354
+                },
+                {
+                    "level": 0.99,
+                    "lower": 0.7677811833292036,
+                    "upper": 0.9826368166707964,
+                    "half_width_pct": 12.274532902517722
+                }
+            ],
+            "coefficient_of_variation_pct": 14.295822575206643,
+            "actual_ipc": 0.926185,
+            "error_pct": 5.503868017728641
+        },
+        "execution_time": {
+            "mean": 2.6479999999999997,
+            "stddev": 0.5968956729985939
+        },
+        "retired_insts": {
+            "mean": 77670.1,
+            "stddev": 34533.547658440446,
+            "actual": 2390026
+        }
+    }
+}

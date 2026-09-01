@@ -1,0 +1,47 @@
+{
+    "trace": "core_riscv.zstf",
+    "num_runs": 50,
+    "probabilistic_mode": true,
+    "convergence_threshold": 0.0005,
+    "convergence_check_interval": 10000,
+    "convergence_metric": "expected_ipc",
+    "config": "small_core.yaml",
+    "results": {
+        "ipc": {
+            "mean": 0.9869109,
+            "stddev": 0.08720383806762456,
+            "confidence_intervals": [
+                {
+                    "level": 0.95,
+                    "lower": 0.9624942740105419,
+                    "upper": 1.0113275259894583,
+                    "half_width_pct": 2.474045629596162
+                },
+                {
+                    "level": 0.97,
+                    "lower": 0.9598765843030008,
+                    "upper": 1.0139452156969992,
+                    "half_width_pct": 2.7392863628316575
+                },
+                {
+                    "level": 0.99,
+                    "lower": 0.9548220140747828,
+                    "upper": 1.0189997859252173,
+                    "half_width_pct": 3.2514471088744896
+                }
+            ],
+            "coefficient_of_variation_pct": 8.836039612859132,
+            "actual_ipc": 0.982345,
+            "error_pct": -0.46479597290157854
+        },
+        "execution_time": {
+            "mean": 2.433,
+            "stddev": 0.6697219953237374
+        },
+        "retired_insts": {
+            "mean": 343071.06,
+            "stddev": 150305.69134123882,
+            "actual": 3546808
+        }
+    }
+}

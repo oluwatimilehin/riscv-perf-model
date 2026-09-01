@@ -1,0 +1,47 @@
+{
+    "trace": "dhrystone_opt3.zstf",
+    "num_runs": 50,
+    "probabilistic_mode": true,
+    "convergence_threshold": 0.0005,
+    "convergence_check_interval": 10000,
+    "convergence_metric": "current_ipc",
+    "config": "big_core.yaml",
+    "results": {
+        "ipc": {
+            "mean": 0.918243684,
+            "stddev": 0.20473007204630853,
+            "confidence_intervals": [
+                {
+                    "level": 0.95,
+                    "lower": 0.8609203171767064,
+                    "upper": 0.9755670508232936,
+                    "half_width_pct": 6.242718335244611
+                },
+                {
+                    "level": 0.97,
+                    "lower": 0.8547747183785874,
+                    "upper": 0.9817126496214126,
+                    "half_width_pct": 6.911995881630539
+                },
+                {
+                    "level": 0.99,
+                    "lower": 0.8429080098722058,
+                    "upper": 0.9935793581277942,
+                    "half_width_pct": 8.204322604172047
+                }
+            ],
+            "coefficient_of_variation_pct": 22.295832317024523,
+            "actual_ipc": 0.998483,
+            "error_pct": 8.036122397677277
+        },
+        "execution_time": {
+            "mean": 0.372,
+            "stddev": 0.10609968358644081
+        },
+        "retired_insts": {
+            "mean": 64704.1,
+            "stddev": 25219.78126129065,
+            "actual": 231022
+        }
+    }
+}
