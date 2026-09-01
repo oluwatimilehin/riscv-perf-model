@@ -1,9 +1,15 @@
+import argparse
+
+import base64
+import hashlib
+
 import json
 import re
 import statistics
 import subprocess
 import time
 import traceback
+
 
 from typing import Dict, List
 from pathlib import Path
@@ -20,6 +26,7 @@ def olympia_exec(
     trace_path: Path,
     config_path: Path,
     probabilistic_mode: bool,
+    convergence_metric: str,
     convergence_threshold: float,
     convergence_check_starting_interval: int,
 ) -> Dict[str, object]:
@@ -27,7 +34,7 @@ def olympia_exec(
     report_prefix = f"{SCRIPT_DIR}/reports/{trace_name}"
 
     if probabilistic_mode:
-        report_prefix += "-probabilistic"
+        report_prefix += f"-probabilistic-{convergence_metric}"
 
     report_path = f"{report_prefix}.json"
     args = [
@@ -48,6 +55,8 @@ def olympia_exec(
         args.extend(
             [
                 "--probabilistic-mode",
+                "--convergence-metric",
+                convergence_metric,
                 "--convergence-threshold",
                 str(convergence_threshold),
                 "--convergence-check-interval",
@@ -113,20 +122,14 @@ def run_trace(
     trace_path: Path,
     config_path: Path,
     probabilistic_mode: bool = False,
+    convergence_metric: str = "current_ipc",
     convergence_threshold: float = 0.00005,
-    convergence_check_starting_interval: int = 10000,
+    convergence_check_interval: int = 10000,
 ) -> Dict[str, object]:
 
-    results: Dict[str, object] = {"probabilistic_mode": probabilistic_mode}
-
-    if probabilistic_mode:
-        results["convergence_threshold"] = convergence_threshold
-        results["convergence_check_starting_interval"] = (
-            convergence_check_starting_interval
-        )
+    results: Dict[str, object] = {}
 
     ipcs = []
-    stationary_distribution_ipcs = []
     execution_times = []
     all_retired_insts = []
 
@@ -136,8 +139,9 @@ def run_trace(
             trace_path,
             config_path,
             probabilistic_mode,
+            convergence_metric,
             convergence_threshold,
-            convergence_check_starting_interval,
+            convergence_check_interval,
         )
 
         if not single_res:
@@ -154,13 +158,17 @@ def run_trace(
             all_retired_insts.append(retired_inst)
 
         if probabilistic_mode:
-            ipcs.append(ipc)
             all_retired_insts.append(retired_inst)
-            stationary_distribution_ipcs.append(
-                single_res["stationary_dist_ipc"]["val"]
-            )
+            if convergence_metric == "current_ipc":
+                ipcs.append(ipc)
+                continue
 
-    ipc = {"values": ipcs, "mean": statistics.mean(ipcs)}
+            ipcs.append(
+                single_res["stationary_dist_ipc"]["val"]
+            )  # Use the stationary distribution IPC if we're using the expected_ipc metric
+
+    mean = statistics.mean(ipcs)
+    ipc = {"values": ipcs, "mean": mean}
     execution_time = {
         "values": execution_times,
         "mean": statistics.mean(execution_times),
@@ -175,92 +183,205 @@ def run_trace(
     results["retired_insts"] = retired_insts
 
     if probabilistic_mode:
-        results["ipc"]["stddev"] = statistics.stdev(ipcs)
+        stddev = statistics.stdev(ipcs)
+        results["ipc"]["stddev"] = stddev
         results["ipc"]["confidence_intervals"] = calculate_confidence_levels(ipcs)
-
-        stationary_distribution_ipc_stats = {}
-        stationary_distribution_ipc_stats["values"] = stationary_distribution_ipcs
-        stationary_distribution_ipc_stats["mean"] = statistics.mean(
-            stationary_distribution_ipcs
-        )
-        stationary_distribution_ipc_stats["stddev"] = statistics.stdev(
-            stationary_distribution_ipcs
-        )
-        stationary_distribution_ipc_stats["confidence_intervals"] = (
-            calculate_confidence_levels(stationary_distribution_ipcs)
-        )
-
-        results["stationary_distribution_ipc"] = stationary_distribution_ipc_stats
-
+        results["ipc"]["coefficient_of_variation_pct"] = (stddev / mean) * 100
     return results
+
+
+def hash_simulation_config(
+    num_runs: int, convergence_threshold: float, convergence_check_interval: int
+) -> str:
+    concat_config = f"{num_runs}-{convergence_threshold}-{convergence_check_interval}"
+    hasher = hashlib.sha1(concat_config.encode("utf-8"))
+    return base64.urlsafe_b64encode(hasher.digest()[:6]).decode("utf-8")
 
 
 if __name__ == "__main__":
     traces_dir = Path(f"{EXECUTABLE_DIR}/traces")
-
     trace_extensions = {".zstf", ".stf"}
-    traces = [
-        file
-        for file in traces_dir.rglob("*")
-        if file.is_file() and file.suffix.lower() in trace_extensions
-    ]
 
-    # traces = [Path(f"{traces_dir}/core_riscv.zstf")]
-    configs = [
-        Path(f"{EXECUTABLE_DIR}/arches/small_core.yaml"),
-        Path(f"{EXECUTABLE_DIR}/arches/medium_core.yaml"),
-    ]
-    num_runs = 10
-    convergence_threshold = 0.0005
-    convergence_check_starting_interval = 10000
+    configs_dir = Path(f"{EXECUTABLE_DIR}/arches")
+    config_extensions = {".yaml", ".yml"}
+
+    parser = argparse.ArgumentParser(
+        prog="Validation script for probabilistic simulation"
+    )
+
+    parser.add_argument(
+        "-n",
+        "--num-runs",
+        type=int,
+        default=10,
+        help="How many times to run the simulation",
+    )
+
+    parser.add_argument(
+        "-t",
+        "--traces",
+        nargs="+",
+        default=[],
+        help="Provide the path to one or more trace files in zstf or stf format. Will default to the traces in traces_dir directory if not provided.",
+    )
+
+    parser.add_argument(
+        "--traces-dir",
+        type=str,
+        default=traces_dir,
+        help="Path to a directory containing trace files. ",
+    )
+
+    parser.add_argument(
+        "-c",
+        "--configs",
+        nargs="+",
+        default=[],
+        help="Provide the path to one or more YAML files specifying the core's configuration. Will default to the configs in the configs_dir directory if not provided.",
+    )
+
+    parser.add_argument(
+        "--configs-dir",
+        type=str,
+        default=configs_dir,
+        help="Path to a directory containing config files.",
+    )
+
+    parser.add_argument(
+        "--probabilistic-mode",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Whether to run simulation in probabilistic or deterministic mode",
+    )
+
+    parser.add_argument(
+        "--convergence-metric",
+        type=str,
+        default="current_ipc",
+        help="Whether to converge using the 'current_ipc' or the 'expected_ipc'",
+    )
+
+    parser.add_argument(
+        "--convergence-threshold",
+        type=float,
+        default=0.0005,
+        help="Maximum difference between consecutive values (defined by the interval) of convergence metric before terminating",
+    )
+
+    parser.add_argument(
+        "--convergence-check-interval",
+        type=int,
+        default=10000,
+        help="How many cycles between consecutive convergence checks",
+    )
+
+    args = parser.parse_args()
+
+    traces = [Path(trace) for trace in args.traces]
+    if not traces:
+        traces = [
+            file
+            for file in traces_dir.rglob("*")
+            if file.is_file() and file.suffix.lower() in trace_extensions
+        ]
+
+    configs = [Path(config) for config in args.configs]
+    if not configs:
+        configs = [
+            file
+            for file in configs_dir.rglob("*")
+            if file.is_file() and file.suffix.lower() in config_extensions
+        ]
+
+    probabilistic_mode = args.probabilistic_mode
+    num_runs = args.num_runs
+    convergence_metric = args.convergence_metric
+    convergence_threshold = args.convergence_threshold
+    convergence_check_interval = args.convergence_check_interval
 
     start_time = time.time()
     trace_results: Dict[str, object] = {"num_runs": num_runs}
 
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+    deterministic_results_dir = "results/deterministic"
+    results_dir = (
+        deterministic_results_dir
+        if not probabilistic_mode
+        else f"results/{convergence_metric}"
+    )
+
+    print(f"Processing traces: {traces}")
     for trace in traces:
-        trace_start_time = time.time()
-        print(f"Processing {trace.name}")
         single_trace_res = {
             "trace": trace.name,
+            "num_runs": num_runs,
+            "probabilistic_mode": probabilistic_mode,
         }
 
-        all_configs_results = []
-        for config in configs:
-            config_res: Dict[str, object] = {"config": config.name}
-            try:
-                deterministic_results = run_trace(num_runs, trace, config, False)
+        if probabilistic_mode:
+            single_trace_res["convergence_threshold"] = convergence_threshold
+            single_trace_res["convergence_check_interval"] = convergence_check_interval
+            single_trace_res["convergence_metric"] = convergence_metric
 
-                probabilistic_results = run_trace(
+        for config in configs:
+            trace_start_time = time.time()
+            single_trace_res["config"] = config.name
+            print(
+                f"Simulating {trace.name} with config: {config.name} and parameters: probabilistic_mode={probabilistic_mode}, convergence_metric={convergence_metric}, convergence_threshold={convergence_threshold}, convergence_check_interval={convergence_check_interval}"
+            )
+
+            try:
+                deterministic_file_name_prefix = f"{trace.stem}_{config.stem}"
+
+                result_file_name_prefix = (
+                    deterministic_file_name_prefix
+                    if not probabilistic_mode
+                    else f"{deterministic_file_name_prefix}_{hash_simulation_config(num_runs, convergence_threshold, convergence_check_interval)}"
+                )
+
+                result_file_path = Path(f"{results_dir}/{result_file_name_prefix}.json")
+
+                if result_file_path.is_file():
+                    print(f"Already simulated {trace.name} with {config}")
+                    continue
+
+                results = run_trace(
                     num_runs,
                     trace,
                     config,
-                    True,
+                    probabilistic_mode,
+                    convergence_metric,
                     convergence_threshold,
-                    convergence_check_starting_interval,
+                    convergence_check_interval,
                 )
 
-                actual_ipc = deterministic_results["ipc"]["mean"]
-                stationary_distribution_ipc = probabilistic_results[
-                    "stationary_distribution_ipc"
-                ]["mean"]
-                probabilistic_computed_ipc = probabilistic_results["ipc"]["mean"]
+                if probabilistic_mode:
+                    deterministic_file_path = Path(
+                        f"{deterministic_results_dir}/{deterministic_file_name_prefix}.json"
+                    )
+                    print(f"Checking for {deterministic_file_path}")
+                    if deterministic_file_path.is_file():
+                        print(f"Found existing {deterministic_file_path}")
+                        with open(deterministic_file_path) as f:
+                            actual_ipc = json.load(f)["results"]["ipc"]["mean"]
+                            computed_ipc = results["ipc"]["mean"]
+                            results["ipc"]["error_pct"] = (
+                                (actual_ipc - computed_ipc) / actual_ipc
+                            ) * 100
 
-                probabilistic_results["stationary_distribution_ipc"]["errorPct"] = (
-                    (actual_ipc - stationary_distribution_ipc) / actual_ipc
-                ) * 100
-                probabilistic_results["ipc"]["errorPct"] = (
-                    (actual_ipc - probabilistic_computed_ipc) / actual_ipc
-                ) * 100
-                probabilistic_results["true_ipc"] = actual_ipc
+                single_trace_res["results"] = results
 
-                config_res["deterministic_results"] = deterministic_results
-                config_res["probabilistic_results"] = probabilistic_results
+                print(f"Result {trace.name}: {single_trace_res}")
+                Path(results_dir).mkdir(parents=True, exist_ok=True)
+                with open(result_file_path, "w", encoding="utf-8") as f:
+                    f.write(json.dumps(single_trace_res, indent=4))
 
-                all_configs_results.append(config_res)
-
+                trace_end_time = time.time()
                 print(
-                    f"Current results for {trace.name}: {json.dumps(all_configs_results)}"
+                    f"Written results for {trace.name} to {result_file_path} in {trace_end_time - trace_start_time} seconds"
                 )
+
             except Exception as e:
                 print(
                     f"Failed to process {trace.name} with config: {config.name}.\n"
@@ -268,25 +389,4 @@ if __name__ == "__main__":
                     f"Traceback:\n{traceback.format_exc()}"
                 )
 
-        single_trace_res["per_config_results"] = all_configs_results
-        trace_end_time = time.time()
-        print(
-            f"Finished processing {trace.name} in {trace_end_time - trace_start_time} seconds"
-        )
-
-        trace_results[trace.stem] = single_trace_res
-
-    end_time = time.time()
-
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    results_dir = "results"
-    Path(results_dir).mkdir(parents=True, exist_ok=True)
-
-    results_file = f"{results_dir}/results_{timestamp}.json"
-
-    with open(results_file, "w", encoding="utf-8") as f:
-        f.write(json.dumps(trace_results, indent=4))
-
-    print(
-        f"Results saved to {results_file} for {len(traces)} traces in {end_time - start_time} seconds"
-    )
+    print(f"Completed simulation")
