@@ -48,8 +48,8 @@ namespace olympia
                       "Number of instructions to retire after which simulation will be "
                       "terminated. 0 means simulation will run until end of testcase")
             PARAMETER(bool, probabilistic_mode, false,
-                      "Whether we are using the stationary distribution method to calculate IPC. "
-                      "Can be set from the command line. ")
+                      "Whether to simulate in probabilistic mode and fetch instructions based on "
+                      "sequence probabilities")
             PARAMETER(std::string, convergence_metric, "current_ipc",
                       "Options are 'current_ipc' and 'expected_ipc'")
             PARAMETER(uint64_t, convergence_check_interval, 10000,
@@ -57,8 +57,7 @@ namespace olympia
                       "has converged when simulating in probabilistic mode")
             PARAMETER(double, convergence_threshold, 0.00005,
                       "Maximum difference between values of the convergence metric in consecutive "
-                      "intervals before we "
-                      "stop simulating")
+                      "intervals before we stop simulating")
             PARAMETER(uint64_t, retire_heartbeat, 1000000, "Heartbeat printout threshold")
             PARAMETER(sparta::Clock::Cycle, retire_timeout_interval, 10000,
                       "Retire timeout error threshold (in cycles). Amount of time elapsed when "
