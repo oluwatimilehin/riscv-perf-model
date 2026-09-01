@@ -1,10 +1,13 @@
 import json
+import statistics
 
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List
 
+
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import pandas as pd
 import seaborn as sns
 
@@ -57,6 +60,111 @@ def plot_confidence_error_correlation(results: Dict[int, Dict[str, List[float]]]
     plt.grid(True, linestyle="--", alpha=0.5)
     plt.savefig(f"{plots_dir}/error_vs_hw95.png", dpi=300, bbox_inches="tight")
     plt.close()
+
+
+def plot_execution_time_against_num_instructions(
+    results: Dict[str, Dict[str, List[float]]],
+):
+    records = []
+    for mode, metrics in results.items():
+        for insts, execution_time in zip(
+            metrics["num_instructions"], metrics["execution_time"]
+        ):
+            records.append(
+                {
+                    "mode": mode,
+                    "num_instructions": insts,
+                    "execution_time": execution_time,
+                }
+            )
+
+    df = pd.DataFrame(records)
+    df_avg = df.groupby(["mode", "num_instructions"], as_index=False)[
+        "execution_time"
+    ].mean()
+
+    plt.figure(figsize=(8, 5))
+    sns.scatterplot(
+        data=df_avg,
+        x="num_instructions",
+        y="execution_time",
+        hue="mode",
+        style="mode",
+        s=70,
+    )
+
+    plt.gca().xaxis.set_major_formatter(
+        ticker.FuncFormatter(lambda x, p: f"{x * 1e-6:.1f}M")
+    )
+
+    plt.title("Execution Time vs. Instructions by Mode", fontsize=12)
+    plt.xlabel("Number of Instructions", fontsize=10)
+    plt.ylabel("Execution Time (s)", fontsize=10)
+    plt.grid(True, linestyle="--", alpha=0.5)
+
+    plt.legend(title="Execution Mode", bbox_to_anchor=(1.02, 1), loc="upper left")
+
+    plt.savefig(
+        f"{plots_dir}/execution_time_vs_num_instructions.png",
+        dpi=300,
+        bbox_inches="tight",
+    )
+    plt.close()
+
+
+def plot_error_per_convergence_criteria(results: Dict[str, Dict[int, List[float]]]):
+    records = []
+
+    for convergence_criteria, sample_dict in results.items():
+        for sample_size, error_list in sample_dict.items():
+            mean_error = statistics.mean(error_list)
+            records.append(
+                {
+                    "convergence_criteria": convergence_criteria,
+                    "sample_size": sample_size,
+                    "mean_error": mean_error,
+                }
+            )
+
+    df_means = pd.DataFrame(records)
+    df_means = df_means.sort_values("sample_size")
+
+    plt.figure(figsize=(8, 5))
+    ax = sns.barplot(
+        data=df_means,
+        x="sample_size",
+        y="mean_error",
+        hue="convergence_criteria",
+        palette="muted",
+        width=0.6
+    )
+
+    # Displays the value on top of each bar
+    for p in ax.patches:
+        if p.get_height() > 0:
+            ax.annotate(
+                f"{p.get_height():.2f}%",
+                (p.get_x() + p.get_width() / 2.0, p.get_height()),
+                ha="center",
+                va="center",
+                xytext=(0, 5),
+                textcoords="offset points",
+                fontsize=9,
+            )
+
+    plt.ylim(0, 50)
+    plt.title(
+        "Mean Error % by Sample Size and Convergence Criteria",
+        fontsize=12,
+        fontweight="bold",
+    )
+    plt.xlabel("Sample Size", fontsize=10)
+    plt.ylabel("Mean Error (%)", fontsize=10)
+    plt.grid(True, axis="y", linestyle="--", alpha=0.5)
+
+    plt.legend(title="Convergence Criteria", bbox_to_anchor=(1.02, 1), loc="upper left")
+    plt.tight_layout()
+    plt.savefig(f"{plots_dir}/mean_error_comparison.png", dpi=300, bbox_inches="tight")
 
 
 def analyse_results():
@@ -133,6 +241,8 @@ def analyse_results():
     print(json.dumps(execution_time_per_num_instructions, indent=4))
     print(json.dumps(error_per_convergence_criteria, indent=4))
     plot_confidence_error_correlation(confidence_error_correlation_per_sample_size)
+    plot_execution_time_against_num_instructions(execution_time_per_num_instructions)
+    plot_error_per_convergence_criteria(error_per_convergence_criteria)
 
 
 if __name__ == "__main__":
