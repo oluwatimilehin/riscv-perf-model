@@ -48,11 +48,12 @@ namespace olympia
         ipc_transition_tracker_(Eigen::MatrixXd::Zero(p->num_to_retire + 1, p->num_to_retire + 1)),
         last_recorded_ipc_(0.0)
     {
-        sparta_assert(
-            probabilistic_mode_
-                && (convergence_metric_ == "expected_ipc" || convergence_metric_ == "current_ipc"),
-            "Convergence metric in probabilistic mode should be either 'current_ipc' or "
-            "'expected_ipc")
+        sparta_assert(!probabilistic_mode_
+                          || (probabilistic_mode_
+                              && (convergence_metric_ == "expected_ipc"
+                                  || convergence_metric_ == "current_ipc")),
+                      "Convergence metric in probabilistic mode should be either 'current_ipc' or "
+                      "'expected_ipc")
 
             // Set a cycle delay on the retire, just for kicks
             ev_retire_.setDelay(1);
