@@ -3,6 +3,7 @@ import argparse
 import base64
 import hashlib
 
+import os
 import json
 import re
 import statistics
@@ -10,6 +11,7 @@ import subprocess
 import time
 import traceback
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from statistics import NormalDist
 from typing import Dict, List
@@ -21,7 +23,8 @@ PARENT_DIR = SCRIPT_DIR.parent
 EXECUTABLE_DIR = f"{PARENT_DIR}/fastdebug"
 
 
-def olympia_exec(
+def run_olympia(
+    run_id: int,
     trace_path: Path,
     config_path: Path,
     probabilistic_mode: bool,
@@ -92,6 +95,7 @@ def olympia_exec(
     with open(report_path) as f:
         results = json.load(f)["Statistics"]["rob"]
         results["wall_time_s"] = wall_time
+        results["run_id"] = run_id
 
     return results
 
@@ -134,32 +138,49 @@ def run_trace(
     convergence_check_interval: int = 10000,
 ) -> Dict[str, object]:
 
+    max_workers = min(num_runs, os.cpu_count() or 8)
+    print(f"Using {max_workers} workers for {num_runs} runs")
+
+    start_time = time.time()
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [
+            executor.submit(
+                run_olympia,
+                i,
+                trace_path,
+                config_path,
+                probabilistic_mode,
+                convergence_metric,
+                convergence_threshold,
+                convergence_check_interval,
+            )
+            for i in range(num_runs)
+        ]
+
+        olympia_results = []
+        for future in as_completed(futures):
+            single_run_result = future.result()
+            if single_run_result is None:
+                print("Warning: A run failed or returned empty results.")
+                break
+            olympia_results.append(single_run_result)
+
+    end_time = time.time()
+    print(f"Completed parallel simulation in {end_time - start_time} seconds")
+
     results: Dict[str, object] = {}
 
     ipcs = []
     execution_times = []
     all_retired_insts = []
 
-    for i in range(num_runs):
-        print(f"Run {i + 1} for trace: {trace}")
-        single_res: Dict[str, object] = olympia_exec(
-            trace_path,
-            config_path,
-            probabilistic_mode,
-            convergence_metric,
-            convergence_threshold,
-            convergence_check_interval,
-        )
-
-        if not single_res:
-            break
-
+    for single_res in olympia_results:
         wall_times_s = single_res["wall_time_s"]
         ipc = single_res["ipc"]["val"]
         retired_inst = single_res["total_number_retired"]["val"]
 
         execution_times.append(wall_times_s)
-        if i == 0 and not probabilistic_mode:
+        if single_res["run_id"] == 0 and not probabilistic_mode:
             # Do this just once as it'll be deterministic
             ipcs.append(ipc)
             all_retired_insts.append(retired_inst)
@@ -204,9 +225,6 @@ def hash_simulation_config(
     concat_config = f"{num_runs}-{convergence_threshold}-{convergence_check_interval}"
     hasher = hashlib.sha1(concat_config.encode("utf-8"))
     return base64.urlsafe_b64encode(hasher.digest()[:6]).decode("utf-8")
-
-
-
 
 
 if __name__ == "__main__":
@@ -321,8 +339,6 @@ if __name__ == "__main__":
     start_time = time.time()
     trace_results: Dict[str, object] = {"num_runs": num_runs}
 
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-
     deterministic_results_dir = "results/deterministic"
     results_dir = (
         deterministic_results_dir
@@ -333,6 +349,7 @@ if __name__ == "__main__":
     print(
         f"Processing traces: {traces} with {num_runs} runs for each config: {configs}"
     )
+    start_time = time.time()
     for trace in traces:
         single_trace_res = {
             "trace": trace.name,
@@ -414,5 +431,6 @@ if __name__ == "__main__":
                     f"Error Details: {e}\n"
                     f"Traceback:\n{traceback.format_exc()}"
                 )
-
-    print(f"Completed simulation")
+    
+    end_time = time.time()
+    print(f"Completed simulation in {end_time - start_time} seconds")
