@@ -369,9 +369,11 @@ if __name__ == "__main__":
                         with open(deterministic_file_path) as f:
                             actual_ipc = json.load(f)["results"]["ipc"]["mean"]
                             computed_ipc = results["ipc"]["mean"]
+                            results["ipc"]["actual_ipc"] = actual_ipc
                             results["ipc"]["error_pct"] = (
                                 (actual_ipc - computed_ipc) / actual_ipc
                             ) * 100
+                            
 
                 single_trace_res["results"] = results
 
