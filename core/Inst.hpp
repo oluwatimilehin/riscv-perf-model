@@ -219,10 +219,7 @@ namespace olympia
         // ROB target information
         void setTargetROB(bool tgt = true) { rob_targeted_ = tgt; }
 
-        bool isTargetROB() const
-        {
-            return rob_targeted_;
-        }
+        bool isTargetROB() const { return rob_targeted_; }
 
         // Opcode information
         std::string getMnemonic() const { return opcode_info_->getMnemonic(); }
@@ -232,12 +229,32 @@ namespace olympia
         uint32_t getOpCode() const { return static_cast<uint32_t>(opcode_info_->getOpcode()); }
 
         // Get the data size in bytes
-        uint32_t getMemAccessSize() const { return static_cast<uint32_t>(opcode_info_->getDataSize() / 8); }  // opcode_info's data size is in bits
+        uint32_t getMemAccessSize() const
+        {
+            return static_cast<uint32_t>(opcode_info_->getDataSize() / 8);
+        } // opcode_info's data size is in bits
 
         mavis::InstructionUniqueID getMavisUid() const
         {
             return opcode_info_->getInstructionUniqueID();
         }
+
+        std::string toHashString() const
+        {
+            std::ostringstream oss;
+            oss << getOpCode() << ":0x" << std::hex << getTargetVAddr() << std::dec << ":";
+            if (isBranch())
+            {
+                oss << (isTakenBranch() ? "T" : "NT");
+            }
+            else
+            {
+                oss << "NB";
+            }
+            return oss.str();
+        }
+
+        std::size_t hash() const { return std::hash<std::string>{}(toHashString()); }
 
         // Operand information
         using OpInfoList = mavis::DecodedInstructionInfo::OpInfoList;
@@ -247,10 +264,7 @@ namespace olympia
             return opcode_info_->getSourceOpInfoList();
         }
 
-        const OpInfoList & getDestOpInfoList() const
-        {
-            return opcode_info_->getDestOpInfoList();
-        }
+        const OpInfoList & getDestOpInfoList() const { return opcode_info_->getDestOpInfoList(); }
 
         const RenameData::DestOpInfoWithRegfileList & getDestOpInfoListWithRegfile() const
         {
@@ -272,8 +286,7 @@ namespace olympia
         bool hasZeroRegDest() const
         {
             return std::any_of(getDestOpInfoList().begin(), getDestOpInfoList().end(),
-                               [](const auto & elem)
-                               { return elem.field_value == 0; });
+                               [](const auto & elem) { return elem.field_value == 0; });
         }
 
         uint64_t getImmediate() const
@@ -350,7 +363,6 @@ namespace olympia
 
             getRenameData().addSource(std::forward<RenameData::Reg>(reg));
         }
-
 
         // Static instruction information
         bool isStoreInst() const { return is_store_; }
@@ -480,7 +492,7 @@ namespace olympia
         // Handy list that extends Mavis' opcode info with register
         // file type.
         RenameData::DestOpInfoWithRegfileList dest_opcode_info_with_reg_file_;
-        RenameData::SrcOpInfoWithRegfileList  src_opcode_info_with_reg_file_;
+        RenameData::SrcOpInfoWithRegfileList src_opcode_info_with_reg_file_;
 
         sparta::memory::addr_t inst_pc_ = 0; // Instruction's PC
         sparta::memory::addr_t target_vaddr_ =
