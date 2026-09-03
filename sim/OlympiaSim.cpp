@@ -1,5 +1,6 @@
 // <OlympiaSim.cpp> -*- C++ -*-
 
+#include <cstdint>
 #include <iostream>
 #include <sparta/simulation/Parameter.hpp>
 #include <sparta/utils/StringUtils.hpp>
@@ -21,7 +22,8 @@ OlympiaSim::OlympiaSim(sparta::Scheduler & scheduler, const uint32_t num_cores,
                        const bool show_factories, const bool probabilistic_mode,
                        const std::string convergence_metric,
                        const uint64_t convergence_check_interval,
-                       const double convergence_threshold) :
+                       const double convergence_threshold,
+                       const uint32_t required_successful_convergence_checks) :
     sparta::app::Simulation("sparta_olympia", &scheduler),
     num_cores_(num_cores),
     workload_(workload),
@@ -30,7 +32,8 @@ OlympiaSim::OlympiaSim(sparta::Scheduler & scheduler, const uint32_t num_cores,
     probabilistic_mode_(probabilistic_mode),
     convergence_metric_(convergence_metric),
     convergence_check_interval_(convergence_check_interval),
-    convergence_threshold_(convergence_threshold)
+    convergence_threshold_(convergence_threshold),
+    required_successful_convergence_checks_(required_successful_convergence_checks)
 {
     // Set up the CPU Resource Factory to be available through ResourceTreeNode
     getResourceSet()->addResourceFactory<olympia::CPUFactory>();
@@ -134,6 +137,12 @@ void OlympiaSim::configureTree_()
         sparta::ParameterBase* convergence_threshold = getRoot()->getChildAs<sparta::ParameterBase>(
             "cpu.core0.rob.params.convergence_threshold");
         convergence_threshold->setValueFromString(std::to_string(convergence_threshold_));
+
+        sparta::ParameterBase* required_successful_convergence_checks =
+            getRoot()->getChildAs<sparta::ParameterBase>(
+                "cpu.core0.rob.params.required_successful_convergence_checks");
+        required_successful_convergence_checks->setValueFromString(
+            sparta::utils::uint32_to_str(required_successful_convergence_checks_));
     }
 }
 

@@ -34,13 +34,16 @@ class OlympiaSim : public sparta::app::Simulation
      *convergence criteria in probabilistic mode.
      * \param convergence_threshold Maximum difference between consecutive convergence matrix values
      *before we stop simulating
+     * \param required_successful_convergence_checks How many successive check intervals for which
+     the convergence criteria must be met before terminating"
      */
     OlympiaSim(sparta::Scheduler & scheduler, const uint32_t num_cores, const std::string workload,
                const uint64_t instruction_limit = 0, const bool show_factories = false,
                const bool probabilistic_mode = false,
                const std::string convergence_metric = "current_ipc",
                const uint64_t convergence_check_interval = 0,
-               const double convergence_threshold = 0.0);
+               const double convergence_threshold = 0.0,
+               const uint32_t required_successful_convergence_checks = 1);
 
     // Tear it down
     virtual ~OlympiaSim();
@@ -104,4 +107,8 @@ class OlympiaSim : public sparta::app::Simulation
 
     // ! Maximum difference between consecutive convergence metric values
     const double convergence_threshold_;
+
+    // ! How many successive check intervals for which the convergence criteria must be met before
+    // terminating"
+    const uint32_t required_successful_convergence_checks_;
 };

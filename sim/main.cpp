@@ -30,6 +30,7 @@ int main(int argc, char** argv)
     std::string convergence_metric = "current_ipc";
     uint64_t convergence_check_interval = 10000;
     double probabilistic_convergence_threshold = 0.00005;
+    uint32_t required_successful_convergence_checks = 1;
 
     const char* WORKLOAD = "workload";
 
@@ -91,7 +92,14 @@ int main(int argc, char** argv)
                     ->default_value(probabilistic_convergence_threshold),
                 "Stop simulating when the maximum difference between the convergence metric value "
                 "is within the threshold. Enabled only in probabilistic "
-                "mode.");
+                "mode.")(
+                "required-successful-convergence-checks",
+                sparta::app::named_value<uint32_t>("REQUIRED_SUCCESSFUL_CONVERGENCE_CHECKS",
+                                                   &required_successful_convergence_checks)
+                    ->default_value(required_successful_convergence_checks),
+                "How many successive check intervals for which the convergence criteria must be "
+                "met "
+                "before terminating");
 
         // Add any positional command-line options
         po::positional_options_description & pos_opts = cls.getPositionalOptions();
@@ -138,7 +146,8 @@ int main(int argc, char** argv)
                        workload,
                        ilimit, // run for ilimit instructions
                        show_factories, probabilistic_mode, convergence_metric,
-                       convergence_check_interval, probabilistic_convergence_threshold);
+                       convergence_check_interval, probabilistic_convergence_threshold,
+                       required_successful_convergence_checks);
 
         cls.populateSimulation(&sim);
 
