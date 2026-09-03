@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <format>
 #include <iostream>
@@ -31,17 +32,18 @@ namespace olympia
                                                          skip_nonuser_mode);
 
         std::vector<std::shared_ptr<InstSequence>> sequences;
-        std::unordered_map<std::string, std::shared_ptr<InstSequence>> id_to_seq;
+        std::unordered_map<std::size_t, std::shared_ptr<InstSequence>> id_to_seq;
 
         std::vector<InstPtr> instructions;
-        std::unordered_map<uint32_t, InstPtr> opcode_to_instr;
+        std::unordered_map<size_t, InstPtr> instr_hash_to_instr;
 
         std::vector<InstPtr> current_instruction_sequence;
         current_instruction_sequence.reserve(sequence_length);
 
-        auto insert_unique_instruction = [&opcode_to_instr, &instructions](const InstPtr & inst_ptr)
+        auto insert_unique_instruction =
+            [&instr_hash_to_instr, &instructions](const InstPtr & inst_ptr)
         {
-            auto [it, inserted] = opcode_to_instr.try_emplace(inst_ptr->getOpCode(), inst_ptr);
+            auto [it, inserted] = instr_hash_to_instr.try_emplace(inst_ptr->hash(), inst_ptr);
             if (inserted)
             {
                 instructions.push_back(inst_ptr);
@@ -68,7 +70,6 @@ namespace olympia
 
         while (!inst_generator_->isDone())
         {
-
             std::shift_left(std::begin(current_instruction_sequence),
                             std::end(current_instruction_sequence), 1);
             const auto & inst_ptr = inst_generator_->getNextInst(clk_);
@@ -120,12 +121,12 @@ namespace olympia
             boost::json::object sequence_obj;
             sequence_obj["id"] = sequence->getId();
 
-            std::vector<uint32_t> opcodes;
+            std::vector<size_t> hashes;
             for (const auto & instr : sequence->getInstructions())
             {
-                opcodes.push_back(instr->getOpCode());
+                hashes.push_back(instr->hash());
             }
-            sequence_obj["instructions"] = boost::json::value_from(opcodes);
+            sequence_obj["instructions"] = boost::json::value_from(hashes);
 
             std::vector<boost::json::object> successors;
             for (const auto & [successor_id, probability] : sequence->getTransitions())
@@ -145,6 +146,7 @@ namespace olympia
         for (const auto & instr : instructions)
         {
             boost::json::object instr_obj;
+            instr_obj["hash"] = instr->hash();
             instr_obj["opcode"] = instr->getOpCode();
             instr_obj["disasm"] = instr->getDisasm();
 
@@ -167,10 +169,6 @@ namespace olympia
             instr_objs.push_back(instr_obj);
         }
 
-        // boost::json::object result_obj;
-        // result_obj["sequenceLength"] = sequence_length;
-        // result_obj["sequences"] = boost::json::value_from(sequence_objs);
-        // result_obj["instructions"] = boost::json::value_from(instr_objs);
         boost::json::value result_obj{{"sequenceLength", sequence_length},
                                       {"sequences", boost::json::value_from(sequence_objs)},
                                       {"instructions", boost::json::value_from(instr_objs)}};
