@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <random>
 #include <string>
@@ -117,9 +118,10 @@ namespace olympia
         void reset(const InstPtr &, const bool) override final;
 
       private:
-        std::unordered_map<std::string, std::shared_ptr<InstSequence>> id_to_seq_;
-        std::string current_sequence_id;
-        std::unordered_set<std::string> visited_sequences_;
+        std::unordered_map<std::size_t, std::shared_ptr<InstSequence>> id_to_seq_;
+        std::size_t current_sequence_id;
+        size_t current_inst_index_ = 0;
+        std::unordered_set<std::size_t> visited_sequences_;
         std::random_device rd_;
         std::mt19937 gen_;
     };

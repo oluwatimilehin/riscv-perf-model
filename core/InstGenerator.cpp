@@ -341,7 +341,7 @@ namespace olympia
             analyser.analyse(filename, sequence_length, skip_nonuser_mode, true);
         auto t2 = std::chrono::high_resolution_clock::now();
 
-        std::cout << std::format("Trace analysis took {} seconds.\n",
+        std::cout << std::format("trace analysis time({}s).\n",
                                  (duration_cast<std::chrono::milliseconds>(t2 - t1)).count()
                                      / 1000.0);
 
@@ -367,22 +367,36 @@ namespace olympia
 
     InstPtr ProbabilisticInstGenerator::getNextInst(const sparta::Clock* clk)
     {
-
-        if (SPARTA_EXPECT_FALSE(isDone()))
-        {
-            return nullptr;
-        }
+        // if (SPARTA_EXPECT_FALSE(isDone()))
+        // {
+        //     return nullptr;
+        // }
 
         const auto & current_sequence = id_to_seq_[current_sequence_id];
-        const auto & first_instruction = current_sequence->getInstructions()[0];
-        const auto next_inst(
-            InstPtr(new Inst(*(first_instruction)))); // Create copy the instruction
+        const auto & instructions = current_sequence->getInstructions();
+
+        // 1. Fetch instruction at the current offset index
+        const auto & target_instruction = instructions[current_inst_index_];
+
+        InstPtr next_inst(new Inst(*(target_instruction)));
         next_inst->setUniqueID(++unique_id_);
         next_inst->setProgramID(program_id_++);
 
-        visited_sequences_.insert(current_sequence_id);
+        if (current_inst_index_ < instructions.size() - 1)
+        {
+            current_inst_index_++;
+        }
+        else
+        {
+            // Reached the end of the current sequence -> step to the next sequence
+            visited_sequences_.insert(current_sequence_id);
 
-        current_sequence_id = current_sequence->getNextSequence(gen_);
+            current_sequence_id = current_sequence->getNextSequence(gen_);
+
+            // For all future sequences, lock index to the last element (index N - 1)
+            // because indices 0 through N - 2 were already emitted by previous sequences
+            current_inst_index_ = id_to_seq_[current_sequence_id]->getInstructions().size() - 1;
+        }
 
         return next_inst;
     }
