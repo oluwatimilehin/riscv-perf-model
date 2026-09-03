@@ -58,6 +58,10 @@ namespace olympia
             PARAMETER(double, convergence_threshold, 0.00005,
                       "Maximum difference between values of the convergence metric in consecutive "
                       "intervals before we stop simulating")
+            PARAMETER(
+                uint32_t, required_successful_convergence_checks, 1,
+                "How many successive check intervals for which the convergence criteria must be met "
+                "before terminating")
             PARAMETER(uint64_t, retire_heartbeat, 1000000, "Heartbeat printout threshold")
             PARAMETER(sparta::Clock::Cycle, retire_timeout_interval, 10000,
                       "Retire timeout error threshold (in cycles). Amount of time elapsed when "
@@ -109,10 +113,12 @@ namespace olympia
         const std::string convergence_metric_;
         uint64_t convergence_check_interval_;
         const double convergence_threshold_;
+        const uint32_t required_successful_convergence_checks_;
         bool terminate_without_convergence_ = false;
         InstQueue reorder_buffer_;
 
         Eigen::MatrixXd ipc_transition_tracker_;
+        uint32_t num_successive_convergence_criteria_met_ = 0;
         double last_recorded_ipc_; // For testing convergence when simulating in probabilistic mode;
 
         // For computing the stationary distribution

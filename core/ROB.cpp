@@ -44,6 +44,7 @@ namespace olympia
         convergence_metric_(p->convergence_metric),
         convergence_check_interval_(p->convergence_check_interval),
         convergence_threshold_(p->convergence_threshold),
+        required_successful_convergence_checks_(p->required_successful_convergence_checks),
         reorder_buffer_("ReorderBuffer", p->retire_queue_depth, node->getClock(), &unit_stat_set_),
         ipc_transition_tracker_(Eigen::MatrixXd::Zero(p->num_to_retire + 1, p->num_to_retire + 1)),
         last_recorded_ipc_(0.0)
@@ -94,7 +95,9 @@ namespace olympia
         {
             std::cout << "Simulating in probabilistic mode with convergence metric: "
                       << convergence_metric_ << ", check interval: " << convergence_check_interval_
-                      << " and threshold: " << convergence_threshold_ << std::endl;
+                      << ", threshold: " << convergence_threshold_ << " and  "
+                      << required_successful_convergence_checks_
+                      << " required successful convergence checks before terminating." << std::endl;
             if (convergence_metric_ == "expected_ipc")
             {
                 ev_track_ipc_transitions_.schedule(sparta::Clock::Cycle(1));
@@ -124,15 +127,28 @@ namespace olympia
     void ROB::trackCurrentIPCConvergence_()
     {
         const double current_ipc = overall_ipc_si_.getValue();
+        bool convergence_criteria_met = false;
+
         if (abs(current_ipc - last_recorded_ipc_) < convergence_threshold_
             || terminate_without_convergence_)
         {
-            std::cout << "Returning IPC as " << current_ipc << " after "
-                      << getClock()->currentCycle() << " cycles." << std::endl;
-            rob_stopped_simulation_ = true;
-            rob_stopped_notif_source_->postNotification(true);
-            getScheduler()->stopRunning();
+            num_successive_convergence_criteria_met_++;
+            convergence_criteria_met = true;
+            if (num_successive_convergence_criteria_met_ == required_successful_convergence_checks_)
+            {
+                std::cout << "Returning IPC as " << current_ipc << " after "
+                          << getClock()->currentCycle() << " cycles." << std::endl;
+                rob_stopped_simulation_ = true;
+                rob_stopped_notif_source_->postNotification(true);
+                getScheduler()->stopRunning();
+            }
         }
+
+        if (!convergence_criteria_met)
+        {
+            num_successive_convergence_criteria_met_ = 0;
+        }
+
         last_recorded_ipc_ = current_ipc;
         ev_track_current_ipc_convergence_.schedule(
             sparta::Clock::Cycle(convergence_check_interval_));
@@ -147,7 +163,7 @@ namespace olympia
         if (getClock()->currentCycle() % convergence_check_interval_ == 0
             || terminate_without_convergence_)
         {
-
+            bool convergence_criteria_met = false;
             Eigen::VectorXd rows_sum = ipc_transition_tracker_.rowwise().sum();
             bool all_visited_ = true;
 
@@ -176,15 +192,26 @@ namespace olympia
                 if (abs(expected_ipc - last_recorded_ipc_) < convergence_threshold_
                     || terminate_without_convergence_)
                 {
-                    std::cout << "Computed stationary distribution as: \n"
-                              << stationary_distribution << "\n with expected IPC:" << expected_ipc
-                              << " using matrix: \n"
-                              << ipc_transition_tracker_ << std::endl;
+                    num_successive_convergence_criteria_met_++;
+                    if (num_successive_convergence_criteria_met_
+                        == required_successful_convergence_checks_)
+                    {
+                        std::cout << "Computed stationary distribution as: \n"
+                                  << stationary_distribution
+                                  << "\n with expected IPC:" << expected_ipc << " using matrix: \n"
+                                  << ipc_transition_tracker_ << std::endl;
 
-                    stationary_distribution_ipc_ = expected_ipc;
-                    rob_stopped_simulation_ = true;
-                    rob_stopped_notif_source_->postNotification(true);
-                    getScheduler()->stopRunning();
+                        stationary_distribution_ipc_ = expected_ipc;
+                        rob_stopped_simulation_ = true;
+                        rob_stopped_notif_source_->postNotification(true);
+                        getScheduler()->stopRunning();
+                    }
+                    convergence_criteria_met = true;
+                }
+
+                if (!convergence_criteria_met)
+                {
+                    num_successive_convergence_criteria_met_ = 0;
                 }
 
                 last_recorded_ipc_ = expected_ipc;
@@ -389,16 +416,15 @@ namespace olympia
             e << "Been a while since we've retired an instruction.  Is the pipe stalled "
                  "indefinitely?";
             e << " currentCycle: " << getClock()->currentCycle();
-
-            terminate_without_convergence_ = true;
-            if (!probabilistic_mode_)
-            {
-                throw e;
-            }
-            std::cout << "Probabilistic mode simulation appears to have stalled indefinitely as "
-                         "the last retirement exceeded the maximum timeout interval. Simulation "
-                         "will terminate without IPC convergence."
-                      << std::endl;
+            throw e;
+            // if (!probabilistic_mode_)
+            // {
+            //     throw e;
+            // }
+            // std::cout << "Probabilistic mode simulation appears to have stalled indefinitely as "
+            //              "the last retirement exceeded the maximum timeout interval. Simulation "
+            //              "should terminate without IPC convergence."
+            //           << std::endl;
         }
         ev_ensure_forward_progress_.schedule(retire_timeout_interval_);
     }
