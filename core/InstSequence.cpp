@@ -1,8 +1,10 @@
 
 #include "InstSequence.hpp"
 #include "Inst.hpp"
+#include <cstddef>
 #include <cstdint>
 #include <string>
+#include <sstream>
 #include <unordered_map>
 
 namespace olympia
@@ -12,18 +14,20 @@ namespace olympia
         successor_count_(),
         distribution_(std::make_unique<std::discrete_distribution<>>())
     {
-        id_ = "";
+        std::ostringstream oss;
         for (size_t i = 0; i < instructions.size(); i++)
         {
-            id_ += std::to_string(instructions[i]->getOpCode());
+            oss << instructions[i]->hash();
             if (i + 1 < instructions.size())
             {
-                id_ += '-';
+                oss << "-";
             }
         }
+
+        id_ = std::hash<std::string>{}(oss.str());
     }
 
-    void InstSequence::addSuccessor(const std::string & successor_id)
+    void InstSequence::addSuccessor(const std::size_t & successor_id)
     {
         if (distribution_)
         {
@@ -32,9 +36,9 @@ namespace olympia
         successor_count_[successor_id]++;
     }
 
-    std::unordered_map<std::string, float> InstSequence::getTransitions()
+    std::unordered_map<std::size_t, float> InstSequence::getTransitions()
     {
-        std::unordered_map<std::string, float> result;
+        std::unordered_map<std::size_t, float> result;
         uint32_t total = 0;
         for (const auto & [_, count] : successor_count_)
         {
@@ -49,7 +53,7 @@ namespace olympia
         return result;
     }
 
-    std::string InstSequence::getNextSequence(std::mt19937 & gen)
+    std::size_t InstSequence::getNextSequence(std::mt19937 & gen)
     {
         if (!distribution_)
         {

@@ -2,10 +2,11 @@
 // <InstSequence.hpp>
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <ostream>
 #include <random>
-#include <string>
+#include <sstream>
 #include <unordered_map>
 #include <vector>
 
@@ -19,22 +20,22 @@ namespace olympia
     {
       public:
         InstSequence(const std::vector<InstPtr> & instructions);
-        void addSuccessor(const std::string & successor_id);
+        void addSuccessor(const std::size_t & successor_id);
 
-        std::string getId() const { return id_; }
+        std::size_t getId() const { return id_; }
 
         const std::vector<InstPtr> & getInstructions() const { return instructions_; }
 
-        std::unordered_map<std::string, float> getTransitions();
+        std::unordered_map<std::size_t, float> getTransitions();
 
-        std::string getNextSequence(std::mt19937 & gen);
+        std::size_t getNextSequence(std::mt19937 & gen);
 
       private:
         std::vector<InstPtr> instructions_;
-        std::unordered_map<std::string, uint32_t> successor_count_;
-        std::string id_;
+        std::unordered_map<std::size_t, uint32_t> successor_count_;
+        std::size_t id_;
         std::unique_ptr<std::discrete_distribution<>> distribution_;
-        std::vector<std::string> successors_;
+        std::vector<std::size_t> successors_;
     };
 
     inline std::ostream & operator<<(std::ostream & os, const InstSequence & sequence)
