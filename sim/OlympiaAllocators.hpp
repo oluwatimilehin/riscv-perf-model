@@ -51,8 +51,9 @@ namespace olympia
         // Allocators used in simulation.  These values can be
         // parameterized in the future by converting this class into a
         // full-blown sparta::Resource and adding a sparta::ParameterSet
-        InstAllocator         inst_allocator          {3000, 2500};
-        InstArchInfoAllocator inst_arch_info_allocator{3000, 2500};
+        // TODO: We probably don't need this many blocks
+        InstAllocator         inst_allocator          {100000, 100000};
+        InstArchInfoAllocator inst_arch_info_allocator{100000, 100000};
 
         // For LSU/MSS
         LoadStoreInstInfoAllocator  load_store_info_allocator{128, 80};
