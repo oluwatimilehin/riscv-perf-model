@@ -16,7 +16,7 @@ from pathlib import Path
 from statistics import NormalDist
 from typing import Dict, List
 
-import datetime
+
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PARENT_DIR = SCRIPT_DIR.parent
@@ -33,7 +33,8 @@ def run_olympia(
     convergence_check_starting_interval: int,
 ) -> Dict[str, object]:
     trace_name = trace_path.stem
-    report_prefix = f"{SCRIPT_DIR}/reports/{trace_name}"
+    pid = os.getpid()
+    report_prefix = f"{SCRIPT_DIR}/reports/{trace_name}_pid{pid}_run{run_id}"
 
     if probabilistic_mode:
         report_prefix += f"-probabilistic-{convergence_metric}"
@@ -81,22 +82,34 @@ def run_olympia(
         return {}
 
     output = olympia_process.stdout
-    match = re.search(r"wall\((\d+\.\d+)\)", output)
+    wall_match = re.search(r"wall\((\d+\.\d+)\)", output)
 
     wall_time = end_time - start_time
     print(f"Output: {output}")
-    if not match:
+    if not wall_match:
         print(
             f"Simulation ran too quickly to determine the wall time. Using the measured python time as wall time"
         )
     else:
-        wall_time = float(match.group(1))
+        wall_time = float(wall_match.group(1))
+
+    if probabilistic_mode:
+        trace_analysis_time_match = re.search(
+            r"trace analysis time\(([\d.]+)s\)", output
+        )
+        if trace_analysis_time_match:
+            trace_analysis_time = float(trace_analysis_time_match.group(1))
+            wall_time -= trace_analysis_time
 
     with open(report_path) as f:
         results = json.load(f)["Statistics"]["rob"]
         results["wall_time_s"] = wall_time
         results["run_id"] = run_id
 
+        if probabilistic_mode:
+            results["trace_analysis_time"] = trace_analysis_time
+
+    os.remove(report_path)
     return results
 
 
@@ -136,16 +149,39 @@ def run_trace(
     convergence_metric: str = "current_ipc",
     convergence_threshold: float = 0.00005,
     convergence_check_interval: int = 10000,
+    parallelise: bool = True,
 ) -> Dict[str, object]:
 
-    max_workers = min(num_runs, os.cpu_count() or 8)
-    print(f"Using {max_workers} workers for {num_runs} runs")
-
     start_time = time.time()
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [
-            executor.submit(
-                run_olympia,
+    olympia_results = []
+    if parallelise:
+        max_workers = min(num_runs, os.cpu_count() or 8)
+        print(f"Using {max_workers} workers for {num_runs} runs") 
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [
+                executor.submit(
+                    run_olympia,
+                    i,
+                    trace_path,
+                    config_path,
+                    probabilistic_mode,
+                    convergence_metric,
+                    convergence_threshold,
+                    convergence_check_interval,
+                )
+                for i in range(num_runs)
+            ]
+
+            for future in as_completed(futures):
+                single_run_result = future.result()
+                if not single_run_result:
+                    raise Exception(f"Simulation failed")
+                
+                olympia_results.append(single_run_result)
+    else:
+        for i in range(num_runs):
+            print(f"Simulation run {i+1}")
+            olympia_res = run_olympia(
                 i,
                 trace_path,
                 config_path,
@@ -154,19 +190,13 @@ def run_trace(
                 convergence_threshold,
                 convergence_check_interval,
             )
-            for i in range(num_runs)
-        ]
+            if not olympia_res:
+                raise Exception(f"Simulation failed")
 
-        olympia_results = []
-        for future in as_completed(futures):
-            single_run_result = future.result()
-            if single_run_result is None:
-                print("Warning: A run failed or returned empty results.")
-                break
-            olympia_results.append(single_run_result)
+            olympia_results.append(olympia_res)
 
     end_time = time.time()
-    print(f"Completed parallel simulation in {end_time - start_time} seconds")
+    print(f"Completed simulation in {end_time - start_time} seconds")
 
     results: Dict[str, object] = {}
 
@@ -200,6 +230,7 @@ def run_trace(
     execution_time = {
         "mean": statistics.mean(execution_times),
         "stddev": statistics.stdev(execution_times),
+        "median": statistics.median(execution_times),
     }
     retired_insts = {
         "mean": statistics.mean(all_retired_insts),
@@ -242,7 +273,7 @@ if __name__ == "__main__":
         "-n",
         "--num-runs",
         type=int,
-        default=10,
+        default=1,
         help="How many times to run the simulation",
     )
 
@@ -300,7 +331,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--convergence-threshold",
         type=float,
-        default=0.0005,
+        default=0.00005,
         help="Maximum difference between consecutive values (defined by the interval) of convergence metric before terminating",
     )
 
@@ -431,6 +462,6 @@ if __name__ == "__main__":
                     f"Error Details: {e}\n"
                     f"Traceback:\n{traceback.format_exc()}"
                 )
-    
+
     end_time = time.time()
     print(f"Completed simulation in {end_time - start_time} seconds")
