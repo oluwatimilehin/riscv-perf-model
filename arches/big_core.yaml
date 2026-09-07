@@ -3,7 +3,7 @@
 #
 
 # Build on top of a medium core
-include: medium_core.yaml
+include: arches/medium_core.yaml
 
 top.cpu.core0:
   fetch.params.num_to_fetch:   8
