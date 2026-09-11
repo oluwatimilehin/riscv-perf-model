@@ -16,8 +16,6 @@ from pathlib import Path
 from statistics import NormalDist
 from typing import Dict, List
 
-
-
 SCRIPT_DIR = Path(__file__).resolve().parent
 PARENT_DIR = SCRIPT_DIR.parent
 EXECUTABLE_DIR = f"{PARENT_DIR}/fastdebug"
@@ -64,6 +62,10 @@ def run_olympia(
                 str(convergence_threshold),
                 "--convergence-check-interval",
                 str(convergence_check_starting_interval),
+                "--random-seed",
+                str(
+                    run_id + 1
+                ),  # It'll be random if this is set to zero, so we're trying to avoid that
             ]
         )
 
@@ -156,7 +158,7 @@ def run_trace(
     olympia_results = []
     if parallelise:
         max_workers = min(num_runs, os.cpu_count() or 8)
-        print(f"Using {max_workers} workers for {num_runs} runs") 
+        print(f"Using {max_workers} workers for {num_runs} runs")
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [
                 executor.submit(
@@ -176,7 +178,7 @@ def run_trace(
                 single_run_result = future.result()
                 if not single_run_result:
                     raise Exception(f"Simulation failed")
-                
+
                 olympia_results.append(single_run_result)
     else:
         for i in range(num_runs):
@@ -273,7 +275,7 @@ if __name__ == "__main__":
         "-n",
         "--num-runs",
         type=int,
-        default=1,
+        default=10,
         help="How many times to run the simulation",
     )
 
@@ -348,7 +350,7 @@ if __name__ == "__main__":
     if not traces:
         traces = [
             file
-            for file in traces_dir.rglob("*")
+            for file in traces_dir.glob("*")
             if file.is_file() and file.suffix.lower() in trace_extensions
         ]
 
@@ -356,7 +358,7 @@ if __name__ == "__main__":
     if not configs:
         configs = [
             file
-            for file in configs_dir.rglob("*")
+            for file in configs_dir.glob("*")
             if file.is_file() and file.suffix.lower() in config_extensions
         ]
 
