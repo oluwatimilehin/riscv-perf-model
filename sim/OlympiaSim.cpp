@@ -23,7 +23,8 @@ OlympiaSim::OlympiaSim(sparta::Scheduler & scheduler, const uint32_t num_cores,
                        const std::string convergence_metric,
                        const uint64_t convergence_check_interval,
                        const double convergence_threshold,
-                       const uint32_t required_successful_convergence_checks) :
+                       const uint32_t required_successful_convergence_checks,
+                       const uint32_t random_seed) :
     sparta::app::Simulation("sparta_olympia", &scheduler),
     num_cores_(num_cores),
     workload_(workload),
@@ -33,7 +34,8 @@ OlympiaSim::OlympiaSim(sparta::Scheduler & scheduler, const uint32_t num_cores,
     convergence_metric_(convergence_metric),
     convergence_check_interval_(convergence_check_interval),
     convergence_threshold_(convergence_threshold),
-    required_successful_convergence_checks_(required_successful_convergence_checks)
+    required_successful_convergence_checks_(required_successful_convergence_checks),
+    random_seed_(random_seed)
 {
     // Set up the CPU Resource Factory to be available through ResourceTreeNode
     getResourceSet()->addResourceFactory<olympia::CPUFactory>();
@@ -118,6 +120,10 @@ void OlympiaSim::configureTree_()
             getRoot()->getChildAs<sparta::ParameterBase>(
                 "cpu.core0.fetch.params.probabilistic_mode");
         fetch_probabilistic_mode->setValueFromString("true");
+
+        sparta::ParameterBase* random_seed =
+            getRoot()->getChildAs<sparta::ParameterBase>("cpu.core0.fetch.params.random_seed");
+        random_seed->setValueFromString(sparta::utils::uint64_to_str(random_seed_));
 
         sparta::ParameterBase* rob_probabilistic_mode =
             getRoot()->getChildAs<sparta::ParameterBase>("cpu.core0.rob.params.probabilistic_mode");

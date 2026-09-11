@@ -13,7 +13,6 @@
 #include <string>
 #include <memory>
 #include <unordered_set>
-#include <vector>
 
 #include "Inst.hpp"
 #include "decode/MavisUnit.hpp"
@@ -55,7 +54,7 @@ namespace olympia
         createProbabilisticGenerator(sparta::log::MessageSource & info_logger,
                                      MavisType* mavis_facade, const std::string & filename,
                                      const sparta::Clock* clk, uint32_t sequence_length,
-                                     const bool skip_nonuser_mode);
+                                     uint64_t random_seed, const bool skip_nonuser_mode);
         virtual bool isDone() const = 0;
         virtual void reset(const InstPtr &, const bool) = 0;
 
@@ -111,7 +110,7 @@ namespace olympia
         ProbabilisticInstGenerator(sparta::log::MessageSource & info_logger,
                                    MavisType* mavis_facade, const std::string & filename,
                                    const sparta::Clock* clk, uint32_t sequence_length,
-                                   const bool skip_nonuser_mode);
+                                   uint64_t random_seed, const bool skip_nonuser_mode);
         InstPtr getNextInst(const sparta::Clock* clk) override final;
 
         bool isDone() const override final;
@@ -122,7 +121,6 @@ namespace olympia
         std::size_t current_sequence_id;
         size_t current_inst_index_ = 0;
         std::unordered_set<std::size_t> visited_sequences_;
-        std::random_device rd_;
         std::mt19937 gen_;
     };
 } // namespace olympia

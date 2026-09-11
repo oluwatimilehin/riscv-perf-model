@@ -46,11 +46,12 @@ namespace olympia
     std::unique_ptr<InstGenerator> InstGenerator::createProbabilisticGenerator(
         sparta::log::MessageSource & info_logger, MavisType* mavis_facade,
         const std::string & filename, const sparta::Clock* clk, uint32_t sequence_length,
-        const bool skip_nonuser_mode)
+        uint64_t random_seed, const bool skip_nonuser_mode)
     {
         std::cout << "olympia: Running probabilistic instruction generator" << std::endl;
-        return std::make_unique<ProbabilisticInstGenerator>(
-            info_logger, mavis_facade, filename, clk, sequence_length, skip_nonuser_mode);
+        return std::make_unique<ProbabilisticInstGenerator>(info_logger, mavis_facade, filename,
+                                                            clk, sequence_length, random_seed,
+                                                            skip_nonuser_mode);
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -326,14 +327,12 @@ namespace olympia
 
     ////////////////////////////////////////////////////////////////////////////////
     // Probabilistic Inst Generator
-    ProbabilisticInstGenerator::ProbabilisticInstGenerator(sparta::log::MessageSource & info_logger,
-                                                           MavisType* mavis_facade,
-                                                           const std::string & filename,
-                                                           const sparta::Clock* clk,
-                                                           uint32_t sequence_length,
-                                                           const bool skip_nonuser_mode) :
+    ProbabilisticInstGenerator::ProbabilisticInstGenerator(
+        sparta::log::MessageSource & info_logger, MavisType* mavis_facade,
+        const std::string & filename, const sparta::Clock* clk, uint32_t sequence_length,
+        uint64_t random_seed, const bool skip_nonuser_mode) :
         InstGenerator(info_logger, mavis_facade),
-        gen_(rd_())
+        gen_(random_seed)
     {
         auto t1 = std::chrono::high_resolution_clock::now();
         TraceAnalyser analyser(info_logger, mavis_facade_, clk);
@@ -367,15 +366,10 @@ namespace olympia
 
     InstPtr ProbabilisticInstGenerator::getNextInst(const sparta::Clock* clk)
     {
-        // if (SPARTA_EXPECT_FALSE(isDone()))
-        // {
-        //     return nullptr;
-        // }
 
         const auto & current_sequence = id_to_seq_[current_sequence_id];
         const auto & instructions = current_sequence->getInstructions();
 
-        // 1. Fetch instruction at the current offset index
         const auto & target_instruction = instructions[current_inst_index_];
 
         InstPtr next_inst(new Inst(*(target_instruction)));

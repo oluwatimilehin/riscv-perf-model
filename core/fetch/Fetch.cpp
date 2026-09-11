@@ -5,7 +5,10 @@
 //! \brief Implementation of the CoreModel Fetch unit
 //!
 
-#include <algorithm>
+#include <cstdint>
+#include <iostream>
+#include <ostream>
+#include <random>
 #include "fetch/Fetch.hpp"
 #include "InstGenerator.hpp"
 #include "decode/MavisUnit.hpp"
@@ -25,6 +28,7 @@ namespace olympia
         num_insts_to_fetch_(p->num_to_fetch),
         skip_nonuser_mode_(p->skip_nonuser_mode),
         probabilistic_mode_(p->probabilistic_mode),
+        random_seed_(p->random_seed),
         icache_block_shift_(sparta::utils::floor_log2(p->block_width.getValue())),
         ibuf_capacity_(std::ceil(p->block_width / 2)), // buffer up instructions read from trace
         fetch_buffer_capacity_(p->fetch_buffer_size),
@@ -67,13 +71,23 @@ namespace olympia
         auto cpu_node = getContainer()->getParent()->getParent();
         auto extension = sparta::notNull(cpu_node->getExtension("simulation_configuration"));
         auto workload = extension->getParameters()->getParameter("workload");
-        inst_generator_ =
-            probabilistic_mode_
-                ? InstGenerator::createProbabilisticGenerator(
-                      info_logger_, getMavis(getContainer()), workload->getValueAsString(), my_clk_,
-                      num_insts_to_fetch_, skip_nonuser_mode_)
-                : InstGenerator::createGenerator(info_logger_, getMavis(getContainer()),
-                                                 workload->getValueAsString(), skip_nonuser_mode_);
+        if (probabilistic_mode_)
+        {
+            std::random_device rd_;
+            uint64_t seed = random_seed_ == 0 ? rd_() : random_seed_;
+            
+            std::cout<<"Using seed: " << seed << std::endl;
+            
+            inst_generator_ = InstGenerator::createProbabilisticGenerator(
+                info_logger_, getMavis(getContainer()), workload->getValueAsString(), my_clk_,
+                num_insts_to_fetch_, seed, skip_nonuser_mode_);
+        }
+        else
+        {
+            inst_generator_ =
+                InstGenerator::createGenerator(info_logger_, getMavis(getContainer()),
+                                               workload->getValueAsString(), skip_nonuser_mode_);
+        }
 
         ev_fetch_insts->schedule(1);
     }

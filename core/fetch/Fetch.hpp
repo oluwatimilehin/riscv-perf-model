@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include "sparta/ports/DataPort.hpp"
 #include "sparta/events/SingleCycleUniqueEvent.hpp"
@@ -58,6 +59,9 @@ namespace olympia
             PARAMETER(uint32_t, num_to_fetch, 4, "Number of instructions to fetch")
             PARAMETER(bool, probabilistic_mode, false,
                       "Use the probabilistic instruction generator")
+            PARAMETER(uint64_t, random_seed, 0,
+                      "Seed for generating instructions in probabilistic mode. Will be randomly "
+                      "generated if set to 0. Helps enable reproducability.")
             PARAMETER(bool, skip_nonuser_mode, false,
                       "For STF traces, skip system instructions if present")
             PARAMETER(uint32_t, block_width, 16, "Block width of memory read requests, in bytes")
@@ -118,6 +122,9 @@ namespace olympia
 
         // Use the probabilistic instruction generator
         const bool probabilistic_mode_;
+
+        // Seed for probabilistically generating instructions, to ensure reproducibility
+        const uint64_t random_seed_;
 
         // Number of credits from decode that fetch has
         uint32_t credits_inst_queue_ = 0;

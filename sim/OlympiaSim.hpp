@@ -4,6 +4,7 @@
 
 #include "sparta/app/Simulation.hpp"
 #include <cstdint>
+#include <sys/types.h>
 
 namespace olympia
 {
@@ -43,7 +44,8 @@ class OlympiaSim : public sparta::app::Simulation
                const std::string convergence_metric = "current_ipc",
                const uint64_t convergence_check_interval = 0,
                const double convergence_threshold = 0.0,
-               const uint32_t required_successful_convergence_checks = 1);
+               const uint32_t required_successful_convergence_checks = 1,
+               const uint32_t random_seed = 0);
 
     // Tear it down
     virtual ~OlympiaSim();
@@ -111,4 +113,6 @@ class OlympiaSim : public sparta::app::Simulation
     // ! How many successive check intervals for which the convergence criteria must be met before
     // terminating"
     const uint32_t required_successful_convergence_checks_;
+
+    const uint64_t random_seed_;
 };

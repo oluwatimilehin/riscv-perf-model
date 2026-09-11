@@ -31,6 +31,7 @@ int main(int argc, char** argv)
     uint64_t convergence_check_interval = 10000;
     double probabilistic_convergence_threshold = 0.00005;
     uint32_t required_successful_convergence_checks = 1;
+    uint64_t random_seed = 0;
 
     const char* WORKLOAD = "workload";
 
@@ -98,8 +99,12 @@ int main(int argc, char** argv)
                                                    &required_successful_convergence_checks)
                     ->default_value(required_successful_convergence_checks),
                 "How many successive check intervals for which the convergence criteria must be "
-                "met "
-                "before terminating");
+                "met before terminating")(
+                "random-seed",
+                sparta::app::named_value<uint64_t>("RANDOM_SEED", &random_seed)
+                    ->default_value(random_seed),
+                "Seed for generating instructions in probabilistic mode. Will be randomly "
+                "generated if set to 0. Helps enable reproducability.");
 
         // Add any positional command-line options
         po::positional_options_description & pos_opts = cls.getPositionalOptions();
@@ -147,7 +152,7 @@ int main(int argc, char** argv)
                        ilimit, // run for ilimit instructions
                        show_factories, probabilistic_mode, convergence_metric,
                        convergence_check_interval, probabilistic_convergence_threshold,
-                       required_successful_convergence_checks);
+                       required_successful_convergence_checks, random_seed);
 
         cls.populateSimulation(&sim);
 
