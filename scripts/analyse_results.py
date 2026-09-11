@@ -175,14 +175,13 @@ def plot_error_per_trace(trace_results: List[Dict[str, object]]):
     for config in unique_configs:
         df_config = df[df["config"] == config]
 
-
         unique_samples = sorted(df_config["num_runs"].unique())
         num_samples = len(unique_samples)
 
         fig, axes = plt.subplots(
             nrows=num_samples,
             ncols=1,
-            figsize=(9, 4 * num_samples), 
+            figsize=(9, 4 * num_samples),
             sharex=True,
         )
 
@@ -235,7 +234,6 @@ def plot_error_per_trace(trace_results: List[Dict[str, object]]):
         plt.savefig(output_filename, dpi=300, bbox_inches="tight")
         plt.close()
         print(f"Saved plot: {output_filename}")
-
 
 
 def analyse_results():
@@ -311,7 +309,7 @@ def analyse_results():
                     "error_pcts"
                 ].append(abs(ipc_error))
 
-                if num_runs != 500:  # Parallel execution slows things down
+                if num_runs == 10:  # Parallel execution slows things down
                     execution_time_per_num_instructions[convergence_metric][
                         "num_instructions"
                     ].append(result_json["retired_insts"]["actual"])
@@ -326,11 +324,11 @@ def analyse_results():
     # print(json.dumps(confidence_error_correlation_per_sample_size, indent=4))
     # print(json.dumps(execution_time_per_num_instructions, indent=4))
     # print(json.dumps(error_per_convergence_metric, indent=4))
-    print(json.dumps(trace_results, indent=4))
+    # print(json.dumps(trace_results, indent=4))
     plot_error_per_trace(trace_results)
-    # plot_confidence_error_correlation(confidence_error_correlation_per_sample_size)
-    # plot_execution_time_against_num_instructions(execution_time_per_num_instructions)
-    # plot_error_per_convergence_criteria(error_per_convergence_metric)
+    plot_confidence_error_correlation(confidence_error_correlation_per_sample_size)
+    plot_execution_time_against_num_instructions(execution_time_per_num_instructions)
+    plot_error_per_convergence_criteria(error_per_convergence_metric)
 
 
 if __name__ == "__main__":
