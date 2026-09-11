@@ -47,6 +47,7 @@ namespace olympia
         required_successful_convergence_checks_(p->required_successful_convergence_checks),
         reorder_buffer_("ReorderBuffer", p->retire_queue_depth, node->getClock(), &unit_stat_set_),
         ipc_transition_tracker_(Eigen::MatrixXd::Zero(p->num_to_retire + 1, p->num_to_retire + 1)),
+        last_recorded_stationary_distribution_(Eigen::VectorXd::Zero(p->num_to_retire + 1)),
         last_recorded_ipc_(0.0)
     {
         sparta_assert(!probabilistic_mode_
@@ -182,16 +183,22 @@ namespace olympia
 
                 Eigen::VectorXd stationary_distribution =
                     computeStationaryDistribution_(current_matrix);
-                double expected_ipc = 0;
 
-                for (int i = 0; i < stationary_distribution.size(); i++)
-                {
-                    expected_ipc += (i * stationary_distribution(i));
-                }
+                double total_variation =
+                    0.5
+                    * (stationary_distribution - last_recorded_stationary_distribution_)
+                          .cwiseAbs()
+                          .sum();
 
-                if (abs(expected_ipc - last_recorded_ipc_) < convergence_threshold_
-                    || terminate_without_convergence_)
+                if (total_variation < convergence_threshold_ || terminate_without_convergence_)
                 {
+                    double expected_ipc = 0;
+
+                    for (int i = 0; i < stationary_distribution.size(); i++)
+                    {
+                        expected_ipc += (i * stationary_distribution(i));
+                    }
+
                     num_successive_convergence_criteria_met_++;
                     if (num_successive_convergence_criteria_met_
                         == required_successful_convergence_checks_)
@@ -214,7 +221,7 @@ namespace olympia
                     num_successive_convergence_criteria_met_ = 0;
                 }
 
-                last_recorded_ipc_ = expected_ipc;
+                last_recorded_stationary_distribution_ = stationary_distribution;
             }
         }
 
